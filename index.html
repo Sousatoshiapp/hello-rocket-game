@@ -15,57 +15,24 @@
       min-height: 100vh;
       color: #adff2f;
     }
-    h1 {
-      font-size: 32px;
-      letter-spacing: 2px;
-      margin-top: 24px;
-      margin-bottom: 12px;
-      color: #adff2f;
-      text-shadow: 0 0 8px #070;
-      text-align: center;
-      font-family: 'Press Start 2P', monospace;
-    }
     #game {
-      border: 4px solid #adff2f;
       background: #090e23;
       box-shadow: 0 0 40px #0a0, 0 0 12px #000;
       margin-bottom: 18px;
-      margin-top: 8px;
+      margin-top: 40px;
       display: block;
       outline: none;
-    }
-    button {
-      font-family: 'Press Start 2P', monospace;
-      font-size: 18px;
-      color: #090e23;
-      background: #adff2f;
+      /* Sem borda */
       border: none;
-      padding: 14px 38px;
-      border-radius: 14px;
-      box-shadow: 0 4px #060, 0 0 8px #adff2f88;
-      cursor: pointer;
-      margin: 12px 0;
-      transition: background 0.2s, color 0.2s;
-    }
-    button:disabled {
-      background: #ddd;
-      color: #aaa;
-      cursor: not-allowed;
     }
     @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
   </style>
 </head>
 <body>
-  <h1>Hello Rocket</h1>
   <canvas id="game" width="800" height="520" tabindex="1"></canvas>
-  <button id="startBtn" disabled>Carregando...</button>
-  <button id="restartBtn" style="display:none">Reiniciar</button>
-
 <script>
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
-const startBtn = document.getElementById('startBtn');
-const restartBtn = document.getElementById('restartBtn');
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
 
@@ -93,6 +60,8 @@ let level = 1;
 let alienSpeed = 0.7;
 let gameOver = false;
 let gameStarted = false;
+let startBtnEnabled = false;
+let introPulse = 0;
 
 const player = {
   x: WIDTH/2 - 16,
@@ -113,15 +82,12 @@ const totalAssets = 1 + 1 + alienSprites.length;
 function onAssetLoad() {
   assetsLoaded++;
   if (assetsLoaded === totalAssets) {
-    startBtn.disabled = false;
-    startBtn.innerText = 'START GAME';
+    startBtnEnabled = true;
   }
 }
 rocketImg.onload = onAssetLoad;
 coinImg.onload = onAssetLoad;
 alienSprites.forEach(img => img.onload = onAssetLoad);
-startBtn.disabled = true;
-startBtn.innerText = 'Carregando...';
 
 // --- Game Logic ---
 function spawnAliens() {
@@ -211,7 +177,6 @@ function updateAliens() {
     aliens.forEach(a => {
       a.dir *= -1;
       a.y += 32;
-      // Se chegar na base, perde vida
       if (a.y + a.h >= player.y) {
         lives--;
         if (lives <= 0) endGame();
@@ -229,7 +194,6 @@ function updateBullets() {
 function updateCoins() {
   for (let i = coins.length-1; i>=0; i--) {
     coins[i].y += 4;
-    // pegou
     if (
       coins[i].x < player.x + player.w &&
       coins[i].x + coins[i].w > player.x &&
@@ -245,7 +209,6 @@ function updateCoins() {
   }
 }
 function checkCollisions() {
-  // Bala e alien
   for (let bi = bullets.length-1; bi>=0; bi--) {
     let b = bullets[bi];
     for (let ai = aliens.length-1; ai>=0; ai--) {
@@ -264,7 +227,6 @@ function checkCollisions() {
       }
     }
   }
-  // Alien e player
   for (let ai = aliens.length-1; ai>=0; ai--) {
     let a = aliens[ai];
     if (
@@ -280,7 +242,6 @@ function checkCollisions() {
   }
 }
 function update() {
-  // Movimento do foguete com easing
   if (typeof player.targetX !== 'undefined') {
     const dx = player.targetX - player.x;
     player.x += dx * 0.12;
@@ -291,7 +252,6 @@ function update() {
   updateBullets();
   updateCoins();
   checkCollisions();
-  // Próxima fase
   if (aliens.length === 0 && !gameOver) {
     level++;
     alienSpeed += 0.18;
@@ -310,17 +270,80 @@ function draw() {
   if (gameOver) drawGameOver();
 }
 
-function loop() {
-  if (!gameStarted) return;
-  if (!gameOver) {
-    update();
-    draw();
-    requestAnimationFrame(loop);
+// --- START BUTTON inside canvas ---
+function drawStartScreen() {
+  ctx.clearRect(0, 0, WIDTH, HEIGHT);
+  drawStars();
+
+  // Animating big Hello Rocket (pulse + color)
+  let pulse = Math.abs(Math.sin(performance.now() / 420)) * 0.21 + 0.98;
+  let fontSize = 78 * pulse;
+  ctx.save();
+  ctx.font = `${fontSize}px "Press Start 2P", monospace`;
+  ctx.textAlign = "center";
+  // Arcade gradient
+  let gradient = ctx.createLinearGradient(WIDTH/2-220, HEIGHT/2-88, WIDTH/2+220, HEIGHT/2+68);
+  gradient.addColorStop(0, "#adff2f");
+  gradient.addColorStop(0.48, "#fff926");
+  gradient.addColorStop(1, "#44b763");
+  ctx.fillStyle = gradient;
+  ctx.shadowColor = "#0a0";
+  ctx.shadowBlur = 24 + 16*pulse;
+  ctx.fillText("HELLO ROCKET", WIDTH/2, HEIGHT/2 - 24);
+  ctx.restore();
+
+  // Desenhar botão Start Game
+  if (startBtnEnabled) {
+    let btnW = 350, btnH = 62;
+    let btnX = WIDTH/2 - btnW/2;
+    let btnY = HEIGHT/2 + 54;
+    // Botão estilo arcade
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#adff2f";
+    ctx.strokeStyle = "#222";
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.roundRect(btnX, btnY, btnW, btnH, 17);
+    ctx.fill();
+    ctx.stroke();
+    ctx.shadowColor = "#d6ff6b";
+    ctx.shadowBlur = 14;
+    ctx.font = "30px 'Press Start 2P', monospace";
+    ctx.fillStyle = "#090e23";
+    ctx.textAlign = "center";
+    ctx.fillText("START GAME", WIDTH/2, btnY + btnH/2 + 12);
+    ctx.restore();
   } else {
-    draw(); // Mostra tela de Game Over
+    ctx.save();
+    ctx.font = "22px 'Press Start 2P', monospace";
+    ctx.fillStyle = "#adff2f";
+    ctx.textAlign = "center";
+    ctx.fillText("CARREGANDO...", WIDTH/2, HEIGHT/2 + 84);
+    ctx.restore();
   }
 }
 
+let startBtnArea = {
+  x: WIDTH/2 - 175, y: HEIGHT/2 + 54, w: 350, h: 62
+};
+
+function insideStartBtn(mx, my) {
+  return (
+    startBtnEnabled &&
+    mx >= startBtnArea.x &&
+    mx <= startBtnArea.x + startBtnArea.w &&
+    my >= startBtnArea.y &&
+    my <= startBtnArea.y + startBtnArea.h
+  );
+}
+
+function introLoop() {
+  drawStartScreen();
+  requestAnimationFrame(introLoop);
+}
+
+// --- GAME FLOW ---
 function fireBullet() {
   if (!gameOver && bullets.length < 6) {
     bullets.push({x: player.x + player.w/2 - 1.5, y: player.y - 10});
@@ -329,7 +352,6 @@ function fireBullet() {
 function endGame() {
   gameOver = true;
   gameStarted = false;
-  restartBtn.style.display = '';
 }
 function restartGame() {
   score = 0;
@@ -341,68 +363,108 @@ function restartGame() {
   coins = [];
   gameOver = false;
   gameStarted = true;
-  restartBtn.style.display = 'none';
   spawnStars();
   spawnAliens();
   player.x = WIDTH/2 - 16;
   player.targetX = WIDTH/2 - 16;
   loop();
 }
+function loop() {
+  if (!gameStarted) return;
+  if (!gameOver) {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  } else {
+    draw();
+  }
+}
 
 // --- Controls ---
 canvas.addEventListener('mousemove', (e) => {
   const rect = canvas.getBoundingClientRect();
   const mouseX = e.clientX - rect.left;
-  player.targetX = mouseX - player.w/2;
+  const mouseY = e.clientY - rect.top;
+  // Mouse sobre botão start na intro
+  if (!gameStarted && startBtnEnabled) {
+    canvas.style.cursor = insideStartBtn(mouseX, mouseY) ? 'pointer' : 'default';
+  } else {
+    player.targetX = mouseX - player.w/2;
+    canvas.style.cursor = 'default';
+  }
 });
 canvas.addEventListener('click', (e) => {
-  if (gameOver) {
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+  if (!gameStarted && startBtnEnabled && insideStartBtn(mouseX, mouseY)) {
+    gameStarted = true;
+    spawnStars();
+    spawnAliens();
+    player.x = WIDTH/2 - 16;
+    player.targetX = WIDTH/2 - 16;
+    score = 0;
+    coinCount = 0;
+    lives = 3;
+    level = 1;
+    alienSpeed = 0.7;
+    bullets = [];
+    coins = [];
+    gameOver = false;
+    loop();
+    return;
+  }
+  if (gameOver && gameStarted === false) {
     restartGame();
-  } else {
+    return;
+  }
+  if (gameStarted && !gameOver) {
     fireBullet();
   }
 });
 window.addEventListener('keydown', (e) => {
-  if (e.code === "Space" && !gameOver) fireBullet();
+  if (e.code === "Space" && gameStarted && !gameOver) fireBullet();
   if (e.key.toLowerCase() === "r" && gameOver) restartGame();
 });
-// Touch support para mobile
+canvas.addEventListener('touchstart', e => {
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0];
+  const mx = touch.clientX - rect.left;
+  const my = touch.clientY - rect.top;
+  if (!gameStarted && startBtnEnabled && insideStartBtn(mx, my)) {
+    gameStarted = true;
+    spawnStars();
+    spawnAliens();
+    player.x = WIDTH/2 - 16;
+    player.targetX = WIDTH/2 - 16;
+    score = 0;
+    coinCount = 0;
+    lives = 3;
+    level = 1;
+    alienSpeed = 0.7;
+    bullets = [];
+    coins = [];
+    gameOver = false;
+    loop();
+    return;
+  }
+  if (gameOver && gameStarted === false) {
+    restartGame();
+    return;
+  }
+  if (gameStarted && !gameOver) fireBullet();
+  e.preventDefault();
+}, {passive:false});
 canvas.addEventListener('touchmove', e => {
-  if (e.touches && e.touches.length) {
+  if (gameStarted && !gameOver) {
     const rect = canvas.getBoundingClientRect();
     player.targetX = e.touches[0].clientX - rect.left - player.w/2;
   }
 });
-canvas.addEventListener('touchstart', e => {
-  if (gameOver) {
-    restartGame();
-  } else {
-    fireBullet();
-  }
-  e.preventDefault();
-}, {passive:false});
 
-// --- Start and restart buttons ---
-startBtn.onclick = () => {
-  startBtn.style.display = 'none';
-  restartBtn.style.display = 'none';
-  restartGame();
-  gameStarted = true;
-};
-restartBtn.onclick = () => {
-  restartBtn.style.display = 'none';
-  restartGame();
-};
-
-// --- Start screen ---
-drawStars();
-ctx.fillStyle = '#adff2f';
-ctx.font = '36px "Press Start 2P", monospace';
-ctx.textAlign = 'center';
-ctx.fillText('HELLO ROCKET', WIDTH/2, HEIGHT/2 - 40);
-ctx.font = '18px "Press Start 2P", monospace';
-ctx.fillText('Clique em START GAME para começar!', WIDTH/2, HEIGHT/2 + 16);
-ctx.textAlign = 'start';
+// --- Start intro ---
+spawnStars();
+introLoop();
 
 </script>
 </body>
