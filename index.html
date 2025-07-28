@@ -50,6 +50,8 @@ const alienSprites = alienSpriteSrcs.map(src => {
   img.src = src;
   return img;
 });
+const bossImg = new Image();
+bossImg.src = 'https://i.imgur.com/hFiI3oW.png';
 
 let score = 0, coinCount = 0, lives = 3, level = 1;
 let alienSpeed = 0.7, gameOver = false, gameStarted = false, startBtnEnabled = false;
@@ -59,16 +61,58 @@ let bullets = [], aliens = [], stars = [], coins = [], alienBullets = [];
 let boostPowerups = [], playerBoost = 1, playerLaser = false, laserCount = 0;
 let boss = null, isBossLevel = false, bossHitAnim = 0;
 let assetsLoaded = 0;
-const totalAssets = 1 + alienSprites.length;
+const totalAssets = 2 + alienSprites.length;
 rocketImg.onload = onAssetLoad;
+bossImg.onload = onAssetLoad;
 alienSprites.forEach(img => img.onload = onAssetLoad);
 function onAssetLoad() { assetsLoaded++; if (assetsLoaded === totalAssets) startBtnEnabled = true; }
 
-// --------- BOSS CONFIG ---------
+// --- BOOSTS LOGIC ---
+let aliensKilledSinceBoost = 0;
+const BOOST_DROP_INTERVAL = 10;
+const MAX_BOOST = 5; // x2, x3, x4, x5, depois vira LASER
+function tryDropBoost(x, y) {
+  aliensKilledSinceBoost++;
+  if (aliensKilledSinceBoost >= BOOST_DROP_INTERVAL) {
+    boostPowerups.push({
+      x: x, y: y, w: 26, h: 26, vy: 2.2 + Math.random()
+    });
+    aliensKilledSinceBoost = 0;
+  }
+}
+function updateBoosts() {
+  for (let i = boostPowerups.length-1; i>=0; i--) {
+    let b = boostPowerups[i];
+    b.y += b.vy;
+    if (
+      b.x < player.x + player.w &&
+      b.x + b.w > player.x &&
+      b.y < player.y + player.h &&
+      b.y + b.h > player.y
+    ) {
+      // Pegou boost!
+      if (!playerLaser) {
+        playerBoost++;
+        if (playerBoost > MAX_BOOST) { playerLaser = true; laserCount = 1; }
+      } else {
+        laserCount = Math.min(laserCount + 1, 2);
+      }
+      boostPowerups.splice(i,1);
+    } else if (b.y > HEIGHT+40) {
+      boostPowerups.splice(i,1);
+    }
+  }
+}
+function resetBoosts() {
+  playerBoost = 1;
+  playerLaser = false;
+  laserCount = 0;
+}
+// --- BOSS CONFIG ---
 function spawnBoss() {
   boss = {
-    x: WIDTH/2 - 100, y: 50,
-    w: 200, h: 85,
+    x: WIDTH/2 - 110, y: 44,
+    w: 220, h: 130,
     vx: 3 + level*0.5, vy: 1.6 + Math.random(),
     dirX: 1, dirY: 1,
     maxHp: 25 + level*8, hp: 25 + level*8,
@@ -79,31 +123,13 @@ function spawnBoss() {
 }
 function drawBoss() {
   if (!boss) return;
-  // Corpo
   ctx.save();
-  ctx.globalAlpha = 0.9;
-  ctx.fillStyle = bossHitAnim>0 ? "#ff0040" : "#222";
-  ctx.fillRect(boss.x, boss.y, boss.w, boss.h);
-  ctx.strokeStyle = "#ffb300";
-  ctx.lineWidth = 7;
-  ctx.strokeRect(boss.x, boss.y, boss.w, boss.h);
-  ctx.restore();
-  // "olhos"
-  ctx.save();
-  ctx.fillStyle = "#00fff6";
-  ctx.fillRect(boss.x+35, boss.y+24, 36, 15);
-  ctx.fillRect(boss.x+boss.w-70, boss.y+24, 36, 15);
-  ctx.restore();
-  // Antenas
-  ctx.save();
-  ctx.strokeStyle = "#fffb";
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.moveTo(boss.x+30, boss.y);
-  ctx.lineTo(boss.x+20, boss.y-30+5*Math.sin(performance.now()/140));
-  ctx.moveTo(boss.x+boss.w-30, boss.y);
-  ctx.lineTo(boss.x+boss.w-20, boss.y-28-7*Math.cos(performance.now()/130));
-  ctx.stroke();
+  // Pisca vermelho quando acerta
+  if (bossHitAnim>0) {
+    ctx.globalAlpha = 0.72;
+    ctx.filter = "brightness(2) hue-rotate(-25deg)";
+  }
+  ctx.drawImage(bossImg, boss.x, boss.y, boss.w, boss.h);
   ctx.restore();
   // Barra de vida
   ctx.save();
@@ -116,9 +142,8 @@ function drawBoss() {
   ctx.strokeRect(WIDTH/2-80, 24, 160, 18);
   ctx.restore();
 }
-// --------- FIM BOSS CONFIG ---------
+// --- FIM BOSS ---
 
-// --- Game Logic ---
 function spawnAliens() {
   aliens = [];
   if ((level % 5) === 0) {
@@ -175,14 +200,14 @@ function drawBullets() {
   if (playerLaser) {
     bullets.forEach(b => {
       ctx.save();
-      ctx.globalAlpha = 0.76;
+      ctx.globalAlpha = 0.86;
       ctx.strokeStyle = laserCount > 1 ? "#fff0ff" : "#00ffed";
       ctx.lineWidth = laserCount > 1 ? 7 : 4;
       ctx.shadowColor = laserCount > 1 ? "#ffbfff" : "#00fff0";
       ctx.shadowBlur = 8;
       ctx.beginPath();
-      ctx.moveTo(b.x+2, b.y+b.h);
-      ctx.lineTo(b.x+2, b.y);
+      ctx.moveTo(b.x+2, player.y);
+      ctx.lineTo(b.x+2, -10);
       ctx.stroke();
       ctx.restore();
     });
@@ -255,16 +280,10 @@ function drawBoosts() {
     ctx.save();
     ctx.beginPath();
     ctx.arc(b.x + b.w/2, b.y + b.h/2, b.w/2, 0, 2*Math.PI);
-    ctx.fillStyle = b.type === 'laser' ? "#ffbfff" : "#ffd700";
-    ctx.shadowColor = b.type === 'laser' ? "#ff79e2" : "#ffe066";
+    ctx.fillStyle = "#ffd700";
+    ctx.shadowColor = "#ffe066";
     ctx.shadowBlur = 8;
     ctx.fill();
-    ctx.restore();
-    ctx.save();
-    ctx.font = "14px " + FONT_FAMILY;
-    ctx.fillStyle = b.type === 'laser' ? "#fff" : "#222";
-    ctx.textAlign = "center";
-    ctx.fillText(b.type === 'laser' ? "L" : b.boostLevel, b.x + b.w/2, b.y + b.h/2 + 7);
     ctx.restore();
   });
 }
@@ -299,7 +318,7 @@ function drawHUD() {
   ctx.fillText(`LEVEL: ${level}`, 610, 30);
   ctx.font = `14px ${FONT_FAMILY}`;
   ctx.fillStyle = "#ffb300";
-  let boostMsg = playerLaser ? (laserCount>1?"LAZER x2":"LAZER") : (playerBoost>1?("x"+playerBoost):"x1");
+  let boostMsg = playerLaser ? (laserCount>1?"LAZER x2":"LAZER") : ("x"+playerBoost);
   ctx.fillText("SHOT: "+boostMsg, WIDTH-155, HEIGHT-15);
   if (shieldActive) {
     ctx.save();
@@ -376,7 +395,7 @@ function drawStartScreen() {
     ctx.restore();
   }
 }
-let startBtnArea = { x: WIDTH/2 - 80, y: HEIGHT/2 + 10, w: 160, h: 38 };
+let startBtnArea = { x: WIDTH/2 - 80,y: HEIGHT/2 + 10, w: 160, h: 38 };
 function insideStartBtn(mx, my) {
   return (
     startBtnEnabled &&
@@ -391,15 +410,14 @@ function introLoop() { if (!gameStarted) { drawStartScreen(); requestAnimationFr
 // --- GAME FLOW
 function fireBullet() {
   if (gameOver) return;
-  let angles = [0];
   if (playerLaser) {
     let lasers = laserCount>1 ? 2 : 1;
-    if (lasers === 1) angles = [0];
-    if (lasers === 2) angles = [-10,10];
-    angles.forEach(ang => {
+    let offsets = [0];
+    if (lasers === 2) offsets = [-7,7];
+    offsets.forEach(off => {
       bullets.push({
-        x: player.x + player.w/2 - 2, y: player.y - 10,
-        w: 4, h: HEIGHT, angle: ang, isLaser: true
+        x: player.x + player.w/2 - 2 + off, y: player.y - 10,
+        w: 4, h: HEIGHT, angle: 0, isLaser: true
       });
     });
     return;
@@ -417,11 +435,10 @@ function fireBullet() {
   }
 }
 function endGame() { gameOver = true; gameStarted = false; }
-function resetBoosts() { playerBoost=1; playerLaser=false; laserCount=0; }
 function restartGame() {
   score = 0; lives = 3; coinCount = 0; level = 1; alienSpeed = 0.7;
   bullets = []; coins = []; alienBullets = []; shieldActive = false; shieldTimer = 0; shieldPowerups = [];
-  boostPowerups = []; playerBoost=1; playerLaser=false; laserCount=0; boss = null; isBossLevel = false;
+  boostPowerups = []; playerBoost=1; playerLaser=false; laserCount=0; boss = null; isBossLevel = false; aliensKilledSinceBoost = 0;
   gameOver = false; gameStarted = true;
   spawnStars(); spawnAliens();
   player.x = WIDTH/2 - 16; player.y = HEIGHT - 64; player.targetX = WIDTH/2 - 16; player.targetY = HEIGHT - 64;
@@ -454,7 +471,7 @@ canvas.addEventListener('click', (e) => {
     player.x = WIDTH/2 - 16; player.y = HEIGHT - 64; player.targetX = WIDTH/2 - 16; player.targetY = HEIGHT - 64;
     score = 0; coinCount = 0; lives = 3; level = 1; alienSpeed = 0.7;
     bullets = []; coins = []; alienBullets = []; shieldActive = false; shieldTimer = 0; shieldPowerups = [];
-    boostPowerups = []; playerBoost=1; playerLaser=false; laserCount=0; boss = null; isBossLevel = false;
+    boostPowerups = []; playerBoost=1; playerLaser=false; laserCount=0; boss = null; isBossLevel = false; aliensKilledSinceBoost = 0;
     gameOver = false; loop(); return;
   }
   if (gameOver && gameStarted === false) { restartGame(); return; }
@@ -473,7 +490,7 @@ canvas.addEventListener('touchstart', e => {
     player.x = WIDTH/2 - 16; player.y = HEIGHT - 64; player.targetX = WIDTH/2 - 16; player.targetY = HEIGHT - 64;
     score = 0; coinCount = 0; lives = 3; level = 1; alienSpeed = 0.7;
     bullets = []; coins = []; alienBullets = []; shieldActive = false; shieldTimer = 0; shieldPowerups = [];
-    boostPowerups = []; playerBoost=1; playerLaser=false; laserCount=0; boss = null; isBossLevel = false;
+    boostPowerups = []; playerBoost=1; playerLaser=false; laserCount=0; boss = null; isBossLevel = false; aliensKilledSinceBoost = 0;
     gameOver = false; loop(); return;
   }
   if (gameOver && gameStarted === false) { restartGame(); return; }
@@ -506,7 +523,6 @@ function aliensTryToFire() {
         w: 12, h: 28, speed: 5 + level/2, dx: Math.random()*2-1, type: "boss"
       });
     }
-    // Tiro em leque do boss
     if (Math.random()<0.32) {
       for (let ang=-30; ang<=30; ang+=30) {
         alienBullets.push({
@@ -543,46 +559,6 @@ function aliensTryToFire() {
     });
   }
 }
-
-// --- Boosts Power-up
-function maybeDropBoost(x, y) {
-  // 20% chance de drop
-  if (Math.random() < 0.20) {
-    let types = ['boost','boost','boost','laser'];
-    let boostType = types[Math.floor(Math.random()*types.length)];
-    boostPowerups.push({
-      x:x, y:y, w:26, h:26, vy:2+Math.random(), type:boostType,
-      boostLevel: boostType==='boost'?(2+Math.floor(Math.random()*4)):undefined
-    });
-  }
-}
-function updateBoosts() {
-  for (let i = boostPowerups.length-1; i>=0; i--) {
-    let b = boostPowerups[i];
-    b.y += b.vy;
-    if (
-      b.x < player.x + player.w &&
-      b.x + b.w > player.x &&
-      b.y < player.y + player.h &&
-      b.y + b.h > player.y
-    ) {
-      // Coletou
-      if (b.type==='boost') {
-        playerBoost = Math.max(playerBoost, b.boostLevel);
-        playerLaser = false; laserCount=0;
-      }
-      if (b.type==='laser') {
-        playerLaser = true;
-        laserCount++;
-        playerBoost=1;
-      }
-      boostPowerups.splice(i,1);
-    } else if (b.y > HEIGHT+40) {
-      boostPowerups.splice(i,1);
-    }
-  }
-}
-// --------- FIM BOOST ---------
 
 function maybeDropShield(x, y) {
   if (Math.random() < 0.10)
@@ -632,9 +608,13 @@ function updateBullets() {
     let b = bullets[i];
     let rad = (b.angle||0)*Math.PI/180;
     b.x += Math.sin(rad)*6;
-    b.y -= (b.isLaser?18:11);
-    if (!b.isLaser && b.y < -12) bullets.splice(i, 1);
-    if (b.isLaser && (b.y < -HEIGHT)) bullets.splice(i, 1);
+    if (b.isLaser) {
+      b.y = player.y; // LASER: sempre começa do bico do foguete!
+      if (b.y < -HEIGHT) bullets.splice(i, 1);
+    } else {
+      b.y -= 11;
+      if (b.y < -12) bullets.splice(i, 1);
+    }
   }
 }
 function updateCoins() {
@@ -696,8 +676,6 @@ function checkCollisions() {
           score += 2000; boss = null; isBossLevel = false;
           setTimeout(() => {level++; alienSpeed+=0.18; spawnAliens();},600);
         }
-        // Drop boost/shield/coin do boss
-        if (Math.random()<0.17) maybeDropBoost(boss.x+boss.w/2-13,boss.y+boss.h/2-13);
         if (Math.random()<0.11) maybeDropShield(boss.x+boss.w/2-15,boss.y+boss.h/2-15);
         if (Math.random()<0.15) coins.push({x: boss.x+boss.w/2-9, y: boss.y+boss.h/2-9, w: 18, h: 18});
         continue;
@@ -713,7 +691,7 @@ function checkCollisions() {
         b.y + (b.isLaser?HEIGHT:14) > a.y
       ) {
         if (!b.isLaser) bullets.splice(bi, 1);
-        maybeDropBoost(a.x + a.w/2 - 13, a.y + a.h/2 - 13);
+        tryDropBoost(a.x + a.w/2 - 13, a.y + a.h/2 - 13);
         maybeDropShield(a.x + a.w/2 - 15, a.y + a.h/2 - 15);
         aliens.splice(ai, 1);
         score += 100;
@@ -722,7 +700,6 @@ function checkCollisions() {
       }
     }
   }
-  // Player encostou em um alien
   for (let ai = aliens.length-1; ai>=0; ai--) {
     let a = aliens[ai];
     if (
@@ -794,3 +771,4 @@ introLoop();
 </script>
 </body>
 </html>
+
