@@ -210,27 +210,37 @@ function checkCollisions() {
 }
 
 function update() {
-  if (typeof player.targetX !== 'undefined') {
-    const dx = player.targetX - player.x;
-    player.x += dx * 0.1;
-  }
-  if (player.x < 0) player.x = 0;
-  if (player.x + player.w > WIDTH) player.x = WIDTH - player.w;
+  try {
+    if (typeof player.targetX !== 'undefined') {
+      const dx = player.targetX - player.x;
+      player.x += dx * 0.1;
+    }
+    if (player.x < 0) player.x = 0;
+    if (player.x + player.w > WIDTH) player.x = WIDTH - player.w;
 
-  updateAliens();
-  updateBullets();
-  updateCoins();
-  checkCollisions();
+    updateAliens();
+    updateBullets();
+    updateCoins();
+    checkCollisions();
+  } catch (e) {
+    console.error('Update error:', e);
+    gameOver = true;
+  }
 }
 
 function draw() {
-  ctx.clearRect(0, 0, WIDTH, HEIGHT);
-  drawStars();
-  drawPlayer();
-  drawAliens();
-  drawBullets();
-  drawCoins();
-  drawHUD();
+  try {
+    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+    drawStars();
+    drawPlayer();
+    drawAliens();
+    drawBullets();
+    drawCoins();
+    drawHUD();
+  } catch (e) {
+    console.error('Draw error:', e);
+    gameOver = true;
+  }
 }
 
 function loop() {
@@ -310,6 +320,11 @@ restartBtn.onclick = () => {
   canvas.focus();
   loop();
 };
+
+rocketImg.onload = () => console.log('Rocket image loaded');
+coinImg.onload = () => console.log('Coin image loaded');
+alienSprites.forEach(img => img.onload = () => console.log('Alien sprite loaded'));
+coinSound.oncanplaythrough = () => console.log('Coin sound loaded');
 </script>
 </body>
 </html>
