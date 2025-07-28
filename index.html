@@ -59,7 +59,8 @@ let shieldActive = false, shieldTimer = 0, shieldPowerups = [];
 let shieldsThisLevel = 0;
 const player = { x: WIDTH/2 - 16, y: HEIGHT - 64, w: 40, h: 46, targetX: WIDTH/2 - 16, targetY: HEIGHT - 64 };
 let bullets = [], aliens = [], stars = [], coins = [], alienBullets = [];
-let boostPowerups = [], playerBoost = 1;
+let boostPowerups = [];
+let playerBoost = 1; // 1 até 10
 let boss = null, isBossLevel = false, bossHitAnim = 0;
 let assetsLoaded = 0;
 const totalAssets = 2 + alienSprites.length;
@@ -68,6 +69,7 @@ bossImg.onload = onAssetLoad;
 alienSprites.forEach(img => img.onload = onAssetLoad);
 function onAssetLoad() { assetsLoaded++; if (assetsLoaded === totalAssets) startBtnEnabled = true; }
 
+// BOOSTS
 let aliensKilledSinceBoost = 0;
 const BOOST_DROP_INTERVAL = 10;
 const MAX_BOOST = 10;
@@ -99,9 +101,8 @@ function updateBoosts() {
 }
 function resetBoosts() { playerBoost = 1; }
 
-// SUPER BOSS otimizado!
+// SUPER BOSS
 function spawnBoss() {
-  // Ajuste de dificuldade progressiva
   let baseSpeed = level === 5 ? 1.0 : (1.0 + (level/15));
   let baseHp = level === 5 ? 50 : (50 + (level-5)*18);
   boss = {
@@ -189,10 +190,31 @@ function drawPlayer() {
   ctx.restore();
 }
 function drawAliens() { aliens.forEach(a => ctx.drawImage(a.sprite, a.x, a.y, a.w, a.h)); }
-function drawBullets() {
-  ctx.fillStyle = '#adff2f';
-  bullets.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
+
+// Paleta de cores dos tiros por boost
+function getBulletColor(boost) {
+  if (boost === 1) return "#adff2f";
+  if (boost === 2) return "#6fffda";
+  if (boost === 3) return "#6f7aff";
+  if (boost === 4) return "#ffd700";
+  if (boost === 5) return "#ff60e6";
+  if (boost === 6) return "#ff3c3c";
+  if (boost === 7) return "#fff";
+  if (boost === 8) return "#fcb900";
+  if (boost === 9) return "#0af2ff";
+  if (boost >= 10) return "#ff00c3";
+  return "#adff2f";
 }
+function drawBullets() {
+  ctx.save();
+  ctx.shadowColor = "#fff";
+  ctx.shadowBlur = 7;
+  ctx.globalAlpha = 0.96;
+  ctx.fillStyle = getBulletColor(playerBoost);
+  bullets.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
+  ctx.restore();
+}
+
 function drawAlienBullets() {
   alienBullets.forEach(b => {
     ctx.save();
@@ -302,7 +324,7 @@ function drawHUD() {
   ctx.fillText(`LIVES: ${lives}`, 430, 30);
   ctx.fillText(`LEVEL: ${level}`, 610, 30);
   ctx.font = `14px ${FONT_FAMILY}`;
-  ctx.fillStyle = "#ffb300";
+  ctx.fillStyle = getBulletColor(playerBoost);
   let boostMsg = "x" + playerBoost;
   ctx.fillText("SHOT: "+boostMsg, WIDTH-155, HEIGHT-15);
   if (shieldActive) {
@@ -402,7 +424,7 @@ function fireBullet() {
     spread = 0;
     angleStep = 0;
   } else {
-    spread = 60; // total angle
+    spread = 70 + (count-4)*10; // abre mais conforme aumenta tiros
     angleStep = (count > 1) ? spread/(count-1) : 0;
   }
   let startAngle = -spread/2;
@@ -594,9 +616,7 @@ function updateBullets() {
     if (b.y < -12 || b.x < -12 || b.x > WIDTH+12) bullets.splice(i, 1);
   }
 }
-function updateCoins() {
-  // Coins evaporam, animadas em drawCoins()
-}
+function updateCoins() { }
 function updateAlienBullets() {
   for (let i = alienBullets.length - 1; i >= 0; i--) {
     let b = alienBullets[i];
