@@ -1,35 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Hello Rocket 8bit</title>
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-  <style>
-    body {
-      background: #090e23;
-      margin: 0;
-      padding: 0;
-      font-family: 'Press Start 2P', monospace;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-      color: #adff2f;
-    }
-    #game {
-      background: #090e23;
-      box-shadow: 0 0 40px #0a0, 0 0 12px #000;
-      margin-bottom: 18px;
-      margin-top: 40px;
-      display: block;
-      outline: none;
-      border: none;
-      image-rendering: pixelated;
-    }
-  </style>
-</head>
-<body>
-  <canvas id="game" width="800" height="520" tabindex="1"></canvas>
 <script>
 const FONT_FAMILY = `"Press Start 2P", monospace`;
 const canvas = document.getElementById('game');
@@ -56,6 +24,7 @@ bossImg.src = 'https://i.imgur.com/hFiI3oW.png';
 let score = 0, coinCount = 0, lives = 3, level = 1;
 let alienSpeed = 0.7, gameOver = false, gameStarted = false, startBtnEnabled = false;
 let shieldActive = false, shieldTimer = 0, shieldPowerups = [];
+let shieldsThisLevel = 0; // NOVO: limita escudo por fase
 const player = { x: WIDTH/2 - 16, y: HEIGHT - 64, w: 40, h: 46, targetX: WIDTH/2 - 16, targetY: HEIGHT - 64 };
 let bullets = [], aliens = [], stars = [], coins = [], alienBullets = [];
 let boostPowerups = [], playerBoost = 1, playerLaser = false, laserCount = 0;
@@ -67,10 +36,10 @@ bossImg.onload = onAssetLoad;
 alienSprites.forEach(img => img.onload = onAssetLoad);
 function onAssetLoad() { assetsLoaded++; if (assetsLoaded === totalAssets) startBtnEnabled = true; }
 
-// --- BOOSTS LOGIC ---
+// BOOSTS LOGIC
 let aliensKilledSinceBoost = 0;
 const BOOST_DROP_INTERVAL = 10;
-const MAX_BOOST = 5; // x2, x3, x4, x5, depois vira LASER
+const MAX_BOOST = 5; // x2, x3, x4, x5, depois LASER
 function tryDropBoost(x, y) {
   aliensKilledSinceBoost++;
   if (aliensKilledSinceBoost >= BOOST_DROP_INTERVAL) {
@@ -90,7 +59,6 @@ function updateBoosts() {
       b.y < player.y + player.h &&
       b.y + b.h > player.y
     ) {
-      // Pegou boost!
       if (!playerLaser) {
         playerBoost++;
         if (playerBoost > MAX_BOOST) { playerLaser = true; laserCount = 1; }
@@ -108,7 +76,8 @@ function resetBoosts() {
   playerLaser = false;
   laserCount = 0;
 }
-// --- BOSS CONFIG ---
+
+// ----------- SUPER BOSS ----------
 function spawnBoss() {
   boss = {
     x: WIDTH/2 - 110, y: 44,
@@ -124,7 +93,6 @@ function spawnBoss() {
 function drawBoss() {
   if (!boss) return;
   ctx.save();
-  // Pisca vermelho quando acerta
   if (bossHitAnim>0) {
     ctx.globalAlpha = 0.72;
     ctx.filter = "brightness(2) hue-rotate(-25deg)";
@@ -142,16 +110,19 @@ function drawBoss() {
   ctx.strokeRect(WIDTH/2-80, 24, 160, 18);
   ctx.restore();
 }
-// --- FIM BOSS ---
+// ----------- FIM SUPER BOSS ----------
 
+// Aliens e stars
 function spawnAliens() {
   aliens = [];
   if ((level % 5) === 0) {
     spawnBoss();
+    shieldsThisLevel = 0;
     return;
   }
   isBossLevel = false;
   boss = null;
+  shieldsThisLevel = 0; // RESET escudos da fase!
   const rows = 3 + Math.min(level, 4);
   const cols = 6 + Math.floor(level * 1.1);
   for (let row = 0; row < rows; row++)
@@ -240,16 +211,31 @@ function drawAlienBullets() {
     ctx.restore();
   });
 }
+
+// -------- MOEDAS EVAPORANDO --------
+const COINS_PANEL_X = 220+88; // X approx center of "COINS:" painel HUD
+const COINS_PANEL_Y = 20;
 function drawCoins() {
   let time = performance.now() * 0.005;
   let pulse = 1 + Math.sin(time * 2) * 0.12;
-  coins.forEach(c => {
+  for(let i=0;i<coins.length;i++) {
+    let c = coins[i];
+    let t = (performance.now() - c.spawnTime) / 420; // velocidade da animação
+    if(t>1) t=1;
+    // Bezier para trajetória curva, com pulo/evaporação
+    let bx = c.x + c.w/2, by = c.y + c.h/2;
+    let ex = COINS_PANEL_X, ey = COINS_PANEL_Y;
+    let cx1 = bx + (ex-bx)*0.2, cy1 = by-60;
+    let cx2 = bx + (ex-bx)*0.6, cy2 = ey-70;
+    // Bezier Cubica
+    let px = (1-t)*(1-t)*(1-t)*bx + 3*(1-t)*(1-t)*t*cx1 + 3*(1-t)*t*t*cx2 + t*t*t*ex;
+    let py = (1-t)*(1-t)*(1-t)*by + 3*(1-t)*(1-t)*t*cy1 + 3*(1-t)*t*t*cy2 + t*t*t*ey;
     ctx.save();
     ctx.beginPath();
-    ctx.arc(c.x + c.w/2, c.y + c.h/2, c.w/2 * pulse, 0, Math.PI*2);
+    ctx.arc(px, py, c.w/2 * pulse, 0, Math.PI*2);
     let coinGradient = ctx.createRadialGradient(
-      c.x + c.w/2, c.y + c.h/2, c.w/5,
-      c.x + c.w/2, c.y + c.h/2, c.w/2 * pulse
+      px, py, c.w/5,
+      px, py, c.w/2 * pulse
     );
     coinGradient.addColorStop(0, "#fffbe0");
     coinGradient.addColorStop(0.45, "#ffe066");
@@ -259,22 +245,17 @@ function drawCoins() {
     ctx.shadowColor = "#fffcd0";
     ctx.shadowBlur = 8;
     ctx.fill();
-    ctx.globalAlpha = 0.18;
-    ctx.beginPath();
-    ctx.arc(c.x + c.w/2 - 3, c.y + c.h/2 - 2, c.w/4, 0, Math.PI*2);
-    ctx.fillStyle = "#fff";
-    ctx.fill();
     ctx.restore();
-    ctx.save();
-    ctx.globalAlpha = 0.25;
-    ctx.beginPath();
-    ctx.arc(c.x + c.w/2, c.y + c.h/2, c.w/2 * pulse + 2, 0, Math.PI*2);
-    ctx.strokeStyle = "#fffcd0";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.restore();
-  });
+    if (t>=1) {
+      coins.splice(i,1);
+      coinCount++;
+      score += 25;
+      i--;
+    }
+  }
 }
+// -------- FIM MOEDAS EVAPORANDO --------
+
 function drawBoosts() {
   boostPowerups.forEach(b => {
     ctx.save();
@@ -387,7 +368,7 @@ function drawStartScreen() {
     ctx.fillText("START GAME", WIDTH/2, btnY + btnH/2 + 6);
     ctx.restore();
   } else {
-    ctx.save();
+        ctx.save();
     ctx.font = `18px ${FONT_FAMILY}`;
     ctx.fillStyle = "#adff2f";
     ctx.textAlign = "center";
@@ -395,7 +376,7 @@ function drawStartScreen() {
     ctx.restore();
   }
 }
-let startBtnArea = { x: WIDTH/2 - 80,y: HEIGHT/2 + 10, w: 160, h: 38 };
+let startBtnArea = { x: WIDTH/2 - 80, y: HEIGHT/2 + 10, w: 160, h: 38 };
 function insideStartBtn(mx, my) {
   return (
     startBtnEnabled &&
@@ -407,7 +388,7 @@ function insideStartBtn(mx, my) {
 }
 function introLoop() { if (!gameStarted) { drawStartScreen(); requestAnimationFrame(introLoop); } }
 
-// --- GAME FLOW
+// --- GAME FLOW ---
 function fireBullet() {
   if (gameOver) return;
   if (playerLaser) {
@@ -438,7 +419,7 @@ function endGame() { gameOver = true; gameStarted = false; }
 function restartGame() {
   score = 0; lives = 3; coinCount = 0; level = 1; alienSpeed = 0.7;
   bullets = []; coins = []; alienBullets = []; shieldActive = false; shieldTimer = 0; shieldPowerups = [];
-  boostPowerups = []; playerBoost=1; playerLaser=false; laserCount=0; boss = null; isBossLevel = false; aliensKilledSinceBoost = 0;
+  boostPowerups = []; playerBoost=1; playerLaser=false; laserCount=0; boss = null; isBossLevel = false; aliensKilledSinceBoost = 0; shieldsThisLevel = 0;
   gameOver = false; gameStarted = true;
   spawnStars(); spawnAliens();
   player.x = WIDTH/2 - 16; player.y = HEIGHT - 64; player.targetX = WIDTH/2 - 16; player.targetY = HEIGHT - 64;
@@ -471,7 +452,7 @@ canvas.addEventListener('click', (e) => {
     player.x = WIDTH/2 - 16; player.y = HEIGHT - 64; player.targetX = WIDTH/2 - 16; player.targetY = HEIGHT - 64;
     score = 0; coinCount = 0; lives = 3; level = 1; alienSpeed = 0.7;
     bullets = []; coins = []; alienBullets = []; shieldActive = false; shieldTimer = 0; shieldPowerups = [];
-    boostPowerups = []; playerBoost=1; playerLaser=false; laserCount=0; boss = null; isBossLevel = false; aliensKilledSinceBoost = 0;
+    boostPowerups = []; playerBoost=1; playerLaser=false; laserCount=0; boss = null; isBossLevel = false; aliensKilledSinceBoost = 0; shieldsThisLevel = 0;
     gameOver = false; loop(); return;
   }
   if (gameOver && gameStarted === false) { restartGame(); return; }
@@ -490,7 +471,7 @@ canvas.addEventListener('touchstart', e => {
     player.x = WIDTH/2 - 16; player.y = HEIGHT - 64; player.targetX = WIDTH/2 - 16; player.targetY = HEIGHT - 64;
     score = 0; coinCount = 0; lives = 3; level = 1; alienSpeed = 0.7;
     bullets = []; coins = []; alienBullets = []; shieldActive = false; shieldTimer = 0; shieldPowerups = [];
-    boostPowerups = []; playerBoost=1; playerLaser=false; laserCount=0; boss = null; isBossLevel = false; aliensKilledSinceBoost = 0;
+    boostPowerups = []; playerBoost=1; playerLaser=false; laserCount=0; boss = null; isBossLevel = false; aliensKilledSinceBoost = 0; shieldsThisLevel = 0;
     gameOver = false; loop(); return;
   }
   if (gameOver && gameStarted === false) { restartGame(); return; }
@@ -560,9 +541,12 @@ function aliensTryToFire() {
   }
 }
 
+// --- Drop de Shield limitado ---
 function maybeDropShield(x, y) {
-  if (Math.random() < 0.10)
+  if (shieldsThisLevel < 3 && Math.random() < 0.10) {
     shieldPowerups.push({x: x, y: y, w: 30, h: 30, vy: 2.2 + Math.random()});
+    shieldsThisLevel++;
+  }
 }
 function updateShields() {
   for (let i = shieldPowerups.length - 1; i >= 0; i--) {
@@ -609,7 +593,7 @@ function updateBullets() {
     let rad = (b.angle||0)*Math.PI/180;
     b.x += Math.sin(rad)*6;
     if (b.isLaser) {
-      b.y = player.y; // LASER: sempre começa do bico do foguete!
+      b.y = player.y; // LASER sempre no bico do foguete!
       if (b.y < -HEIGHT) bullets.splice(i, 1);
     } else {
       b.y -= 11;
@@ -618,21 +602,7 @@ function updateBullets() {
   }
 }
 function updateCoins() {
-  for (let i = coins.length-1; i>=0; i--) {
-    coins[i].y += 4;
-    if (
-      coins[i].x < player.x + player.w &&
-      coins[i].x + coins[i].w > player.x &&
-      coins[i].y < player.y + player.h &&
-      coins[i].y + coins[i].h > player.y
-    ) {
-      coins.splice(i, 1);
-      coinCount++;
-      score += 25;
-    } else if (coins[i].y > HEIGHT+20) {
-      coins.splice(i, 1);
-    }
-  }
+  // Coins agora evaporam, ver drawCoins()
 }
 function updateAlienBullets() {
   for (let i = alienBullets.length - 1; i >= 0; i--) {
@@ -677,7 +647,7 @@ function checkCollisions() {
           setTimeout(() => {level++; alienSpeed+=0.18; spawnAliens();},600);
         }
         if (Math.random()<0.11) maybeDropShield(boss.x+boss.w/2-15,boss.y+boss.h/2-15);
-        if (Math.random()<0.15) coins.push({x: boss.x+boss.w/2-9, y: boss.y+boss.h/2-9, w: 18, h: 18});
+        if (Math.random()<0.15) coins.push({x: boss.x+boss.w/2-9, y: boss.y+boss.h/2-9, w: 18, h: 18, spawnTime: performance.now()});
         continue;
       }
     }
@@ -695,7 +665,7 @@ function checkCollisions() {
         maybeDropShield(a.x + a.w/2 - 15, a.y + a.h/2 - 15);
         aliens.splice(ai, 1);
         score += 100;
-        coins.push({x: a.x + a.w/2 - 9, y: a.y + a.h/2 - 9, w: 18, h: 18});
+        coins.push({x: a.x + a.w/2 - 9, y: a.y + a.h/2 - 9, w: 18, h: 18, spawnTime: performance.now()});
         break;
       }
     }
@@ -769,6 +739,3 @@ function draw() {
 spawnStars();
 introLoop();
 </script>
-</body>
-</html>
-
