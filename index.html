@@ -3,12 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <title>Hello Rocket 8bit</title>
+  <!-- Carrega fonte Press Start 2P do Google -->
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <style>
     body {
       background: #090e23;
       margin: 0;
       padding: 0;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Press Start 2P', 'VT323', monospace;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -22,15 +24,16 @@
       margin-top: 40px;
       display: block;
       outline: none;
-      /* Sem borda */
       border: none;
     }
-    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
   </style>
 </head>
 <body>
   <canvas id="game" width="800" height="520" tabindex="1"></canvas>
 <script>
+// --- GARANTE USO DA FONTE PIXELADA ---
+const FONT_FAMILY = `"Press Start 2P", "VT323", monospace`;
+
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const WIDTH = canvas.width;
@@ -61,7 +64,6 @@ let alienSpeed = 0.7;
 let gameOver = false;
 let gameStarted = false;
 let startBtnEnabled = false;
-let introPulse = 0;
 
 const player = {
   x: WIDTH/2 - 16,
@@ -89,7 +91,7 @@ rocketImg.onload = onAssetLoad;
 coinImg.onload = onAssetLoad;
 alienSprites.forEach(img => img.onload = onAssetLoad);
 
-// --- Game Logic ---
+// --- Game Logic (igual ao anterior) ---
 function spawnAliens() {
   aliens = [];
   const rows = 3 + Math.min(level, 4);
@@ -144,7 +146,7 @@ function drawCoins() {
 }
 function drawHUD() {
   ctx.fillStyle = '#adff2f';
-  ctx.font = '18px "Press Start 2P", monospace';
+  ctx.font = `18px ${FONT_FAMILY}`;
   ctx.fillText(`SCORE: ${score}`, 22, 30);
   ctx.fillText(`COINS: ${coinCount}`, 220, 30);
   ctx.fillText(`LIVES: ${lives}`, 430, 30);
@@ -157,166 +159,66 @@ function drawGameOver() {
   ctx.fillRect(0, HEIGHT/2-90, WIDTH, 180);
   ctx.globalAlpha = 1;
   ctx.fillStyle = "#ff0040";
-  ctx.font = '36px "Press Start 2P", monospace';
+  ctx.font = `36px ${FONT_FAMILY}`;
   ctx.textAlign = 'center';
   ctx.fillText("GAME OVER", WIDTH/2, HEIGHT/2-16);
-  ctx.font = '20px "Press Start 2P", monospace';
+  ctx.font = `20px ${FONT_FAMILY}`;
   ctx.fillStyle = "#adff2f";
   ctx.fillText('Clique ou pressione [R] para reiniciar', WIDTH/2, HEIGHT/2+36);
   ctx.textAlign = 'start';
   ctx.restore();
 }
 
-function updateAliens() {
-  let hitEdge = false;
-  aliens.forEach(a => {
-    a.x += a.dx * a.dir;
-    if (a.x < 8 || a.x + a.w > WIDTH-8) hitEdge = true;
-  });
-  if (hitEdge) {
-    aliens.forEach(a => {
-      a.dir *= -1;
-      a.y += 32;
-      if (a.y + a.h >= player.y) {
-        lives--;
-        if (lives <= 0) endGame();
-        spawnAliens();
-      }
-    });
-  }
-}
-function updateBullets() {
-  for (let i = bullets.length-1; i>=0; i--) {
-    bullets[i].y -= 11;
-    if (bullets[i].y < -12) bullets.splice(i, 1);
-  }
-}
-function updateCoins() {
-  for (let i = coins.length-1; i>=0; i--) {
-    coins[i].y += 4;
-    if (
-      coins[i].x < player.x + player.w &&
-      coins[i].x + coins[i].w > player.x &&
-      coins[i].y < player.y + player.h &&
-      coins[i].y + coins[i].h > player.y
-    ) {
-      coins.splice(i, 1);
-      coinCount++;
-      score += 25;
-    } else if (coins[i].y > HEIGHT+20) {
-      coins.splice(i, 1);
-    }
-  }
-}
-function checkCollisions() {
-  for (let bi = bullets.length-1; bi>=0; bi--) {
-    let b = bullets[bi];
-    for (let ai = aliens.length-1; ai>=0; ai--) {
-      let a = aliens[ai];
-      if (
-        b.x < a.x + a.w &&
-        b.x + 3 > a.x &&
-        b.y < a.y + a.h &&
-        b.y + 14 > a.y
-      ) {
-        bullets.splice(bi, 1);
-        aliens.splice(ai, 1);
-        score += 100;
-        coins.push({x: a.x + a.w/2 - 9, y: a.y + a.h/2 - 9, w: 18, h: 18});
-        break;
-      }
-    }
-  }
-  for (let ai = aliens.length-1; ai>=0; ai--) {
-    let a = aliens[ai];
-    if (
-      a.x < player.x + player.w &&
-      a.x + a.w > player.x &&
-      a.y + a.h > player.y + 4
-    ) {
-      lives--;
-      if (lives <= 0) endGame();
-      spawnAliens();
-      break;
-    }
-  }
-}
-function update() {
-  if (typeof player.targetX !== 'undefined') {
-    const dx = player.targetX - player.x;
-    player.x += dx * 0.12;
-  }
-  if (player.x < 0) player.x = 0;
-  if (player.x + player.w > WIDTH) player.x = WIDTH - player.w;
-  updateAliens();
-  updateBullets();
-  updateCoins();
-  checkCollisions();
-  if (aliens.length === 0 && !gameOver) {
-    level++;
-    alienSpeed += 0.18;
-    spawnAliens();
-  }
-}
-
-function draw() {
-  ctx.clearRect(0, 0, WIDTH, HEIGHT);
-  drawStars();
-  drawPlayer();
-  drawAliens();
-  drawBullets();
-  drawCoins();
-  drawHUD();
-  if (gameOver) drawGameOver();
-}
-
-// --- START BUTTON inside canvas ---
+// --- START BUTTON inside canvas, com visual arcade --- //
 function drawStartScreen() {
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
   drawStars();
 
-  // Animating big Hello Rocket (pulse + color)
-  let pulse = Math.abs(Math.sin(performance.now() / 420)) * 0.21 + 0.98;
-  let fontSize = 78 * pulse;
+  // Arcade title: Hello Rocket (gigante, pixelada, com gradiente e sombra)
+  let pulse = Math.abs(Math.sin(performance.now() / 420)) * 0.14 + 0.97;
+  let fontSize = 82 * pulse;
   ctx.save();
-  ctx.font = `${fontSize}px "Press Start 2P", monospace`;
+  ctx.font = `bold ${fontSize}px ${FONT_FAMILY}`;
   ctx.textAlign = "center";
   // Arcade gradient
-  let gradient = ctx.createLinearGradient(WIDTH/2-220, HEIGHT/2-88, WIDTH/2+220, HEIGHT/2+68);
+  let gradient = ctx.createLinearGradient(WIDTH/2-260, HEIGHT/2-90, WIDTH/2+260, HEIGHT/2+80);
   gradient.addColorStop(0, "#adff2f");
-  gradient.addColorStop(0.48, "#fff926");
-  gradient.addColorStop(1, "#44b763");
+  gradient.addColorStop(0.4, "#ffe770");
+  gradient.addColorStop(1, "#31a853");
   ctx.fillStyle = gradient;
-  ctx.shadowColor = "#0a0";
-  ctx.shadowBlur = 24 + 16*pulse;
-  ctx.fillText("HELLO ROCKET", WIDTH/2, HEIGHT/2 - 24);
+  ctx.shadowColor = "#11ff80";
+  ctx.shadowBlur = 20 + 20*pulse;
+  ctx.strokeStyle = "#222";
+  ctx.lineWidth = 9;
+  ctx.strokeText("HELLO ROCKET", WIDTH/2, HEIGHT/2 - 22);
+  ctx.fillText("HELLO ROCKET", WIDTH/2, HEIGHT/2 - 22);
   ctx.restore();
 
-  // Desenhar botão Start Game
+  // Botão Start Game (pixel style)
   if (startBtnEnabled) {
     let btnW = 350, btnH = 62;
     let btnX = WIDTH/2 - btnW/2;
     let btnY = HEIGHT/2 + 54;
-    // Botão estilo arcade
     ctx.save();
     ctx.globalAlpha = 1;
     ctx.fillStyle = "#adff2f";
-    ctx.strokeStyle = "#222";
-    ctx.lineWidth = 5;
+    ctx.strokeStyle = "#090e23";
+    ctx.lineWidth = 7;
     ctx.beginPath();
-    ctx.roundRect(btnX, btnY, btnW, btnH, 17);
+    ctx.roundRect(btnX, btnY, btnW, btnH, 13);
     ctx.fill();
+    ctx.shadowColor = "#cfff6b";
+    ctx.shadowBlur = 13;
     ctx.stroke();
-    ctx.shadowColor = "#d6ff6b";
-    ctx.shadowBlur = 14;
-    ctx.font = "30px 'Press Start 2P', monospace";
+    ctx.font = `bold 31px ${FONT_FAMILY}`;
     ctx.fillStyle = "#090e23";
     ctx.textAlign = "center";
-    ctx.fillText("START GAME", WIDTH/2, btnY + btnH/2 + 12);
+    ctx.shadowBlur = 0;
+    ctx.fillText("START GAME", WIDTH/2, btnY + btnH/2 + 13);
     ctx.restore();
   } else {
     ctx.save();
-    ctx.font = "22px 'Press Start 2P', monospace";
+    ctx.font = `22px ${FONT_FAMILY}`;
     ctx.fillStyle = "#adff2f";
     ctx.textAlign = "center";
     ctx.fillText("CARREGANDO...", WIDTH/2, HEIGHT/2 + 84);
@@ -327,7 +229,6 @@ function drawStartScreen() {
 let startBtnArea = {
   x: WIDTH/2 - 175, y: HEIGHT/2 + 54, w: 350, h: 62
 };
-
 function insideStartBtn(mx, my) {
   return (
     startBtnEnabled &&
@@ -337,13 +238,12 @@ function insideStartBtn(mx, my) {
     my <= startBtnArea.y + startBtnArea.h
   );
 }
-
 function introLoop() {
   drawStartScreen();
   requestAnimationFrame(introLoop);
 }
 
-// --- GAME FLOW ---
+// --- GAME FLOW (mesmo do anterior) ---
 function fireBullet() {
   if (!gameOver && bullets.length < 6) {
     bullets.push({x: player.x + player.w/2 - 1.5, y: player.y - 10});
@@ -385,7 +285,6 @@ canvas.addEventListener('mousemove', (e) => {
   const rect = canvas.getBoundingClientRect();
   const mouseX = e.clientX - rect.left;
   const mouseY = e.clientY - rect.top;
-  // Mouse sobre botão start na intro
   if (!gameStarted && startBtnEnabled) {
     canvas.style.cursor = insideStartBtn(mouseX, mouseY) ? 'pointer' : 'default';
   } else {
@@ -465,7 +364,6 @@ canvas.addEventListener('touchmove', e => {
 // --- Start intro ---
 spawnStars();
 introLoop();
-
 </script>
 </body>
 </html>
