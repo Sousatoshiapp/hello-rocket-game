@@ -10,7 +10,7 @@
       overflow: hidden;
       font-family: monospace;
     }
-    #startBtn {
+    #startBtn, #restartBtn {
       position: absolute;
       top: 50%;
       left: 50%;
@@ -23,6 +23,7 @@
       color: black;
       border-radius: 5px;
       z-index: 10;
+      display: none;
     }
     canvas {
       display: block;
@@ -35,11 +36,13 @@
 </head>
 <body>
 <button id="startBtn">INICIAR JOGO</button>
+<button id="restartBtn">REINICIAR</button>
 <canvas id="game" width="960" height="468"></canvas>
 <script>
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const startBtn = document.getElementById('startBtn');
+const restartBtn = document.getElementById('restartBtn');
 
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
@@ -73,20 +76,20 @@ const player = {
   h: 32,
 };
 
-const bullets = [];
-const alienBullets = [];
-const aliens = [];
-const stars = [];
+let bullets = [];
+let alienBullets = [];
+let aliens = [];
+let stars = [];
 const keys = {};
 
 function spawnAliens() {
-  aliens.length = 0;
-  const rows = 3 + Math.min(level, 7);
-  const cols = 6 + Math.min(level, 6);
+  aliens = [];
+  const rows = 4 + Math.min(level, 6);
+  const cols = 8 + Math.min(level, 8);
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
       aliens.push({
-        x: 60 + col * 50,
+        x: 30 + col * 50,
         y: 30 + row * 35,
         w: 32,
         h: 32,
@@ -99,7 +102,7 @@ function spawnAliens() {
 }
 
 function spawnStars() {
-  stars.length = 0;
+  stars = [];
   for (let i = 0; i < 80; i++) {
     stars.push({ x: Math.random() * WIDTH, y: Math.random() * HEIGHT, r: Math.random() * 1.5 });
   }
@@ -159,12 +162,12 @@ function updateAliens() {
     if (a.y + a.h >= player.y && a.x < player.x + player.w && a.x + a.w > player.x) {
       lives--;
       aliens.splice(i, 1);
-      if (lives <= 0) gameOver = true;
+      if (lives <= 0) endGame();
     }
     if (a.y + a.h >= HEIGHT) {
       lives--;
       aliens.splice(i, 1);
-      if (lives <= 0) gameOver = true;
+      if (lives <= 0) endGame();
     }
   });
 
@@ -195,7 +198,7 @@ function updateBullets() {
     ) {
       alienBullets.splice(i, 1);
       lives--;
-      if (lives <= 0) gameOver = true;
+      if (lives <= 0) endGame();
     }
   });
 }
@@ -247,7 +250,13 @@ function loop() {
     ctx.fillStyle = '#f00';
     ctx.font = '30px monospace';
     ctx.fillText('GAME OVER', WIDTH / 2 - 100, HEIGHT / 2);
+    restartBtn.style.display = 'block';
   }
+}
+
+function endGame() {
+  gameOver = true;
+  gameStarted = false;
 }
 
 document.addEventListener('keydown', (e) => {
@@ -263,12 +272,30 @@ document.addEventListener('keyup', (e) => {
 
 startBtn.onclick = () => {
   startBtn.style.display = 'none';
-  gameStarted = true;
+  restartBtn.style.display = 'none';
   score = 0;
   lives = 3;
   level = 1;
   alienSpeed = 0.5;
+  bullets = [];
+  alienBullets = [];
   gameOver = false;
+  gameStarted = true;
+  spawnStars();
+  spawnAliens();
+  loop();
+};
+
+restartBtn.onclick = () => {
+  restartBtn.style.display = 'none';
+  score = 0;
+  lives = 3;
+  level = 1;
+  alienSpeed = 0.5;
+  bullets = [];
+  alienBullets = [];
+  gameOver = false;
+  gameStarted = true;
   spawnStars();
   spawnAliens();
   loop();
