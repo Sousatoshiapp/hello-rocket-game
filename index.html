@@ -40,8 +40,6 @@ const HEIGHT = canvas.height;
 // Sprites
 const rocketImg = new Image();
 rocketImg.src = 'https://i.imgur.com/I0s0bng.png';
-const coinImg = new Image();
-coinImg.src = 'https://i.imgur.com/Y7rmVbR.gif';
 const alienSpriteSrcs = [
   'https://i.imgur.com/OcVpivo.png',
   'https://i.imgur.com/3D84JpY.png',
@@ -79,7 +77,7 @@ let coins = [];
 
 // Asset loader
 let assetsLoaded = 0;
-const totalAssets = 1 + 1 + alienSprites.length;
+const totalAssets = 1 + alienSprites.length;
 function onAssetLoad() {
   assetsLoaded++;
   if (assetsLoaded === totalAssets) {
@@ -87,7 +85,6 @@ function onAssetLoad() {
   }
 }
 rocketImg.onload = onAssetLoad;
-coinImg.onload = onAssetLoad;
 alienSprites.forEach(img => img.onload = onAssetLoad);
 
 // GAME LOGIC
@@ -138,9 +135,42 @@ function drawBullets() {
   ctx.fillStyle = '#adff2f';
   bullets.forEach(b => ctx.fillRect(b.x, b.y, 3, 14));
 }
+// Desenha moedas douradas/prateadas com pulse
 function drawCoins() {
+  let time = performance.now() * 0.005;
+  let pulse = 1 + Math.sin(time * 2) * 0.12;
   coins.forEach(c => {
-    ctx.drawImage(coinImg, c.x, c.y, c.w, c.h);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(c.x + c.w/2, c.y + c.h/2, c.w/2 * pulse, 0, Math.PI*2);
+    let coinGradient = ctx.createRadialGradient(
+      c.x + c.w/2, c.y + c.h/2, c.w/5,
+      c.x + c.w/2, c.y + c.h/2, c.w/2 * pulse
+    );
+    coinGradient.addColorStop(0, "#fffbe0");
+    coinGradient.addColorStop(0.45, "#ffe066");
+    coinGradient.addColorStop(0.75, "#ffd700");
+    coinGradient.addColorStop(1, "#bba120");
+    ctx.fillStyle = coinGradient;
+    ctx.shadowColor = "#fffcd0";
+    ctx.shadowBlur = 8;
+    ctx.fill();
+    // Detalhe metálico
+    ctx.globalAlpha = 0.18;
+    ctx.beginPath();
+    ctx.arc(c.x + c.w/2 - 3, c.y + c.h/2 - 2, c.w/4, 0, Math.PI*2);
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+    ctx.restore();
+    // Contorno
+    ctx.save();
+    ctx.globalAlpha = 0.25;
+    ctx.beginPath();
+    ctx.arc(c.x + c.w/2, c.y + c.h/2, c.w/2 * pulse + 2, 0, Math.PI*2);
+    ctx.strokeStyle = "#fffcd0";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
   });
 }
 function drawHUD() {
@@ -173,27 +203,30 @@ function drawStartScreen() {
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
   drawStars();
 
-  // Título centralizado, tamanho fixo, nunca estoura
+  // Pulse no título: variação de tamanho + leve variação de cor/gradiente
+  let t = performance.now() * 0.002;
+  let pulse = 1 + Math.sin(t * 2.2) * 0.10;
+  let fontSize = 56 * pulse;
   ctx.save();
-  ctx.font = `56px ${FONT_FAMILY}`;
+  ctx.font = `${fontSize}px ${FONT_FAMILY}`;
   ctx.textAlign = "center";
-  ctx.shadowColor = "#0f0";
-  ctx.shadowBlur = 13;
-  // Arcade gradient
-  let gradient = ctx.createLinearGradient(WIDTH/2-180, HEIGHT/2-80, WIDTH/2+180, HEIGHT/2+10);
-  gradient.addColorStop(0, "#adff2f");
-  gradient.addColorStop(0.4, "#ffe770");
-  gradient.addColorStop(1, "#31a853");
-  ctx.fillStyle = gradient;
+  // Arcade gradient com variação sutil
+  let grad = ctx.createLinearGradient(WIDTH/2-180, HEIGHT/2-80, WIDTH/2+180, HEIGHT/2+10);
+  grad.addColorStop(0, "#fffcae");
+  grad.addColorStop(0.3 + 0.1*Math.sin(t), "#ffe770");
+  grad.addColorStop(1, "#ffe26e");
+  ctx.fillStyle = grad;
   ctx.lineWidth = 6;
   ctx.strokeStyle = "#222";
+  ctx.shadowColor = "#f4e700";
+  ctx.shadowBlur = 10 + 12 * pulse;
   ctx.strokeText("HELLO ROCKET", WIDTH/2, HEIGHT/2 - 48);
   ctx.fillText("HELLO ROCKET", WIDTH/2, HEIGHT/2 - 48);
   ctx.restore();
 
-  // Botão Start Game (proporcional e centralizado)
+  // Botão Start Game menor e proporcional
   if (startBtnEnabled) {
-    let btnW = 180, btnH = 42;
+    let btnW = 160, btnH = 38;
     let btnX = WIDTH/2 - btnW/2;
     let btnY = HEIGHT/2 + 10;
     ctx.save();
@@ -205,17 +238,17 @@ function drawStartScreen() {
     ctx.roundRect(btnX, btnY, btnW, btnH, 8);
     ctx.fill();
     ctx.shadowColor = "#cfff6b";
-    ctx.shadowBlur = 6;
+    ctx.shadowBlur = 5;
     ctx.stroke();
-    ctx.font = `18px ${FONT_FAMILY}`;
+    ctx.font = `13px ${FONT_FAMILY}`;
     ctx.fillStyle = "#090e23";
     ctx.textAlign = "center";
     ctx.shadowBlur = 0;
-    ctx.fillText("START GAME", WIDTH/2, btnY + btnH/2 + 7);
+    ctx.fillText("START GAME", WIDTH/2, btnY + btnH/2 + 6);
     ctx.restore();
   } else {
     ctx.save();
-    ctx.font = `20px ${FONT_FAMILY}`;
+    ctx.font = `18px ${FONT_FAMILY}`;
     ctx.fillStyle = "#adff2f";
     ctx.textAlign = "center";
     ctx.fillText("CARREGANDO...", WIDTH/2, HEIGHT/2 + 42);
@@ -224,7 +257,7 @@ function drawStartScreen() {
 }
 
 let startBtnArea = {
-  x: WIDTH/2 - 90, y: HEIGHT/2 + 10, w: 180, h: 42
+  x: WIDTH/2 - 80, y: HEIGHT/2 + 10, w: 160, h: 38
 };
 function insideStartBtn(mx, my) {
   return (
@@ -469,4 +502,3 @@ introLoop();
 </script>
 </body>
 </html>
-
