@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Alien Invasion 8-bit</title>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <style>
@@ -55,12 +55,13 @@
 </div>
 <button id="restartBtn" style="top: 60%; display:none;">RESTART</button>
 <canvas id="game" width="960" height="468" tabindex="1"></canvas>
+<audio id="coinSound" src="https://freesound.org/data/previews/341/341695_5260877-lq.mp3"></audio>
 <script>
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const startBtn = document.getElementById('startBtn');
 const restartBtn = document.getElementById('restartBtn');
-const startScreen = document.getElementById('startScreen');
+const coinSound = document.getElementById('coinSound');
 
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
@@ -76,6 +77,9 @@ let lastAlienShot = 0;
 
 const rocketImg = new Image();
 rocketImg.src = 'https://i.imgur.com/I0s0bng.png';
+
+const coinImg = new Image();
+coinImg.src = 'https://i.imgur.com/Y7rmVbR.gif';
 
 const alienSprites = [
   'https://i.imgur.com/OcVpivo.png',
@@ -98,7 +102,8 @@ let bullets = [];
 let alienBullets = [];
 let aliens = [];
 let stars = [];
-const keys = {};
+let coins = [];
+let coinCount = 0;
 
 function spawnAliens() {
   aliens = [];
@@ -152,71 +157,36 @@ function drawBullets() {
   alienBullets.forEach(b => ctx.fillRect(b.x, b.y, 3, 10));
 }
 
+function drawCoins() {
+  coins.forEach(c => {
+    ctx.drawImage(coinImg, c.x, c.y, c.w, c.h);
+  });
+}
+
 function drawHUD() {
   ctx.fillStyle = '#0f0';
   ctx.font = '16px "Press Start 2P", monospace';
   ctx.fillText(`Score: ${score}`, 10, 20);
   ctx.fillText(`Lives: ${lives}`, WIDTH - 160, 20);
   ctx.fillText(`Level: ${level}`, WIDTH / 2 - 60, 20);
+  ctx.fillText(`Coins: ${coinCount}`, WIDTH - 300, 20);
 }
 
-function updateAliens() {
-  alienDropTimer++;
-  let moveDown = false;
-
-  aliens.forEach(a => {
-    a.x += a.dx * a.dir;
-    if (a.x <= 0 || a.x + a.w >= WIDTH) moveDown = true;
-  });
-
-  if (moveDown || alienDropTimer % 60 === 0) {
-    aliens.forEach(a => {
-      a.dir *= moveDown ? -1 : 1;
-      a.y += 10;
-    });
-  }
-
-  aliens.forEach((a, i) => {
-    if (a.y + a.h >= player.y && a.x < player.x + player.w && a.x + a.w > player.x) {
-      lives--;
-      aliens.splice(i, 1);
-      if (lives <= 0) endGame();
-    }
-    if (a.y + a.h >= HEIGHT) {
-      lives--;
-      aliens.splice(i, 1);
-      if (lives <= 0) endGame();
-    }
-  });
-
-  if (aliens.length === 0) {
-    level++;
-    alienSpeed += 0.2;
-    spawnAliens();
-  }
-
-  if (Date.now() - lastAlienShot > 1000 && aliens.length) {
-    const shooter = aliens[Math.floor(Math.random() * aliens.length)];
-    alienBullets.push({ x: shooter.x + shooter.w / 2, y: shooter.y + shooter.h });
-    lastAlienShot = Date.now();
-  }
-}
-
-function updateBullets() {
-  bullets.forEach((b, i) => {
-    b.y -= 6;
-    if (b.y < 0) bullets.splice(i, 1);
-  });
-  alienBullets.forEach((b, i) => {
-    b.y += 4;
-    if (b.y > HEIGHT) alienBullets.splice(i, 1);
+function updateCoins() {
+  coins.forEach((c, i) => {
+    c.y += 2;
     if (
-      b.x > player.x && b.x < player.x + player.w &&
-      b.y > player.y && b.y < player.y + player.h
+      c.x < player.x + player.w &&
+      c.x + c.w > player.x &&
+      c.y < player.y + player.h &&
+      c.y + c.h > player.y
     ) {
-      alienBullets.splice(i, 1);
-      lives--;
-      if (lives <= 0) endGame();
+      coins.splice(i, 1);
+      coinCount++;
+      coinSound.currentTime = 0;
+      coinSound.play();
+    } else if (c.y > HEIGHT) {
+      coins.splice(i, 1);
     }
   });
 }
@@ -233,19 +203,23 @@ function checkCollisions() {
         bullets.splice(bi, 1);
         aliens.splice(ai, 1);
         score += 100;
+        coins.push({ x: a.x + a.w / 2 - 8, y: a.y, w: 16, h: 16 });
       }
     });
   });
 }
 
 function update() {
-  if (keys['ArrowLeft']) player.x -= 4;
-  if (keys['ArrowRight']) player.x += 4;
+  if (typeof player.targetX !== 'undefined') {
+    const dx = player.targetX - player.x;
+    player.x += dx * 0.1;
+  }
   if (player.x < 0) player.x = 0;
   if (player.x + player.w > WIDTH) player.x = WIDTH - player.w;
 
   updateAliens();
   updateBullets();
+  updateCoins();
   checkCollisions();
 }
 
@@ -255,6 +229,7 @@ function draw() {
   drawPlayer();
   drawAliens();
   drawBullets();
+  drawCoins();
   drawHUD();
 }
 
@@ -283,25 +258,33 @@ function fireBullet() {
   bullets.push({ x: player.x + player.w / 2 - 1, y: player.y });
 }
 
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  player.targetX = mouseX - player.w / 2;
+});
+
+canvas.addEventListener('click', () => {
+  if (gameStarted && !gameOver) fireBullet();
+  if (gameOver) restartBtn.click();
+});
+
 window.addEventListener('keydown', (e) => {
-  keys[e.key] = true;
   if (e.key === ' ' && gameStarted && !gameOver) fireBullet();
   if (e.key.toLowerCase() === 'r' && gameOver) restartBtn.click();
 });
 
-window.addEventListener('keyup', (e) => {
-  keys[e.key] = false;
-});
-
 startBtn.onclick = () => {
-  startScreen.style.display = 'none';
+  startBtn.style.display = 'none';
   restartBtn.style.display = 'none';
   score = 0;
   lives = 3;
   level = 1;
   alienSpeed = 0.5;
+  coinCount = 0;
   bullets = [];
   alienBullets = [];
+  coins = [];
   gameOver = false;
   gameStarted = true;
   spawnStars();
@@ -316,8 +299,10 @@ restartBtn.onclick = () => {
   lives = 3;
   level = 1;
   alienSpeed = 0.5;
+  coinCount = 0;
   bullets = [];
   alienBullets = [];
+  coins = [];
   gameOver = false;
   gameStarted = true;
   spawnStars();
@@ -325,14 +310,6 @@ restartBtn.onclick = () => {
   canvas.focus();
   loop();
 };
-
-window.addEventListener('load', () => {
-  window.focus();
-  document.body.addEventListener('click', () => {
-    window.focus();
-    canvas.focus();
-  });
-});
 </script>
 </body>
 </html>
