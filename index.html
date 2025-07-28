@@ -344,12 +344,18 @@ function drawGameOver() {
   ctx.fillStyle = "#ff0040";
   ctx.font = `36px ${FONT_FAMILY}`;
   ctx.textAlign = 'center';
-  ctx.fillText("GAME OVER", WIDTH/2, HEIGHT/2-16);
+  ctx.fillText("GAME OVER", WIDTH / 2, HEIGHT / 2 - 36);
+
   ctx.font = `20px ${FONT_FAMILY}`;
   ctx.fillStyle = "#adff2f";
-  ctx.fillText('Agora vamos jogar de verdade? Role para baixo', WIDTH/1, HEIGHT/2+36);
+
+// Mensagem em 2 linhas centralizadas
+  ctx.fillText('Agora vamos jogar de verdade?', WIDTH / 2, HEIGHT / 2);
+  ctx.fillText('Role para baixo', WIDTH / 2, HEIGHT / 2 + 28);
+
   ctx.textAlign = 'start';
   ctx.restore();
+
 }
 function drawStartScreen() {
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
