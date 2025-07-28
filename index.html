@@ -268,19 +268,24 @@ function loop() {
     ctx.fillStyle = '#f00';
     ctx.font = '20px "Press Start 2P", monospace';
     ctx.fillText('GAME OVER', WIDTH / 2 - 110, HEIGHT / 2);
-    restartBtn.style.display = 'block';
+    ctx.fillText('Press [R] or Click to Restart', WIDTH / 2 - 180, HEIGHT / 2 + 40);
   }
 }
 
 function endGame() {
   gameOver = true;
   gameStarted = false;
+  restartBtn.style.display = 'block';
+  restartBtn.focus();
 }
 
 document.addEventListener('keydown', (e) => {
   keys[e.key] = true;
   if (e.key === ' ' && gameStarted && !gameOver) {
     bullets.push({ x: player.x + player.w / 2 - 1, y: player.y });
+  }
+  if (e.key.toLowerCase() === 'r' && gameOver) {
+    restartBtn.click();
   }
 });
 
