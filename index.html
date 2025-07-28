@@ -1,3 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Hello Rocket 8bit</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    body {
+      background: #090e23;
+      margin: 0;
+      padding: 0;
+      font-family: 'Press Start 2P', monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      color: #adff2f;
+    }
+    #game {
+      background: #090e23;
+      box-shadow: 0 0 40px #0a0, 0 0 12px #000;
+      margin-bottom: 18px;
+      margin-top: 40px;
+      display: block;
+      outline: none;
+      border: none;
+      image-rendering: pixelated;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="800" height="520" tabindex="1"></canvas>
 <script>
 const FONT_FAMILY = `"Press Start 2P", monospace`;
 const canvas = document.getElementById('game');
@@ -24,7 +56,7 @@ bossImg.src = 'https://i.imgur.com/hFiI3oW.png';
 let score = 0, coinCount = 0, lives = 3, level = 1;
 let alienSpeed = 0.7, gameOver = false, gameStarted = false, startBtnEnabled = false;
 let shieldActive = false, shieldTimer = 0, shieldPowerups = [];
-let shieldsThisLevel = 0; // NOVO: limita escudo por fase
+let shieldsThisLevel = 0; // Limita escudo por fase
 const player = { x: WIDTH/2 - 16, y: HEIGHT - 64, w: 40, h: 46, targetX: WIDTH/2 - 16, targetY: HEIGHT - 64 };
 let bullets = [], aliens = [], stars = [], coins = [], alienBullets = [];
 let boostPowerups = [], playerBoost = 1, playerLaser = false, laserCount = 0;
@@ -39,7 +71,7 @@ function onAssetLoad() { assetsLoaded++; if (assetsLoaded === totalAssets) start
 // BOOSTS LOGIC
 let aliensKilledSinceBoost = 0;
 const BOOST_DROP_INTERVAL = 10;
-const MAX_BOOST = 5; // x2, x3, x4, x5, depois LASER
+const MAX_BOOST = 5;
 function tryDropBoost(x, y) {
   aliensKilledSinceBoost++;
   if (aliensKilledSinceBoost >= BOOST_DROP_INTERVAL) {
@@ -77,7 +109,7 @@ function resetBoosts() {
   laserCount = 0;
 }
 
-// ----------- SUPER BOSS ----------
+// SUPER BOSS
 function spawnBoss() {
   boss = {
     x: WIDTH/2 - 110, y: 44,
@@ -110,9 +142,7 @@ function drawBoss() {
   ctx.strokeRect(WIDTH/2-80, 24, 160, 18);
   ctx.restore();
 }
-// ----------- FIM SUPER BOSS ----------
 
-// Aliens e stars
 function spawnAliens() {
   aliens = [];
   if ((level % 5) === 0) {
@@ -122,7 +152,7 @@ function spawnAliens() {
   }
   isBossLevel = false;
   boss = null;
-  shieldsThisLevel = 0; // RESET escudos da fase!
+  shieldsThisLevel = 0;
   const rows = 3 + Math.min(level, 4);
   const cols = 6 + Math.floor(level * 1.1);
   for (let row = 0; row < rows; row++)
@@ -213,21 +243,19 @@ function drawAlienBullets() {
 }
 
 // -------- MOEDAS EVAPORANDO --------
-const COINS_PANEL_X = 220+88; // X approx center of "COINS:" painel HUD
+const COINS_PANEL_X = 310; // X approx center of "COINS:" painel HUD
 const COINS_PANEL_Y = 20;
 function drawCoins() {
   let time = performance.now() * 0.005;
   let pulse = 1 + Math.sin(time * 2) * 0.12;
   for(let i=0;i<coins.length;i++) {
     let c = coins[i];
-    let t = (performance.now() - c.spawnTime) / 420; // velocidade da animação
+    let t = (performance.now() - c.spawnTime) / 420;
     if(t>1) t=1;
-    // Bezier para trajetória curva, com pulo/evaporação
     let bx = c.x + c.w/2, by = c.y + c.h/2;
     let ex = COINS_PANEL_X, ey = COINS_PANEL_Y;
     let cx1 = bx + (ex-bx)*0.2, cy1 = by-60;
     let cx2 = bx + (ex-bx)*0.6, cy2 = ey-70;
-    // Bezier Cubica
     let px = (1-t)*(1-t)*(1-t)*bx + 3*(1-t)*(1-t)*t*cx1 + 3*(1-t)*t*t*cx2 + t*t*t*ex;
     let py = (1-t)*(1-t)*(1-t)*by + 3*(1-t)*(1-t)*t*cy1 + 3*(1-t)*t*t*cy2 + t*t*t*ey;
     ctx.save();
@@ -286,7 +314,7 @@ function drawShields() {
     ctx.font = "13px " + FONT_FAMILY;
     ctx.fillStyle = "#22e0ea";
     ctx.textAlign = "center";
-    ctx.fillText("S", s.x + s.w/2, s.y + s.h/2 + 7);
+    ctx.fillText("S", s.x + s.w/2, s.y + s.w/2 + 7);
     ctx.restore();
   });
 }
@@ -368,7 +396,7 @@ function drawStartScreen() {
     ctx.fillText("START GAME", WIDTH/2, btnY + btnH/2 + 6);
     ctx.restore();
   } else {
-        ctx.save();
+    ctx.save();
     ctx.font = `18px ${FONT_FAMILY}`;
     ctx.fillStyle = "#adff2f";
     ctx.textAlign = "center";
@@ -403,7 +431,6 @@ function fireBullet() {
     });
     return;
   }
-  // Multi-shot
   let count = playerBoost;
   let spread = 50;
   let start = -((count-1)/2)*spread;
@@ -417,7 +444,7 @@ function fireBullet() {
 }
 function endGame() { gameOver = true; gameStarted = false; }
 function restartGame() {
-  score = 0; lives = 3; coinCount = 0; level = 1; alienSpeed = 0.7;
+  score = 0; coinCount = 0; lives = 3; level = 1; alienSpeed = 0.7;
   bullets = []; coins = []; alienBullets = []; shieldActive = false; shieldTimer = 0; shieldPowerups = [];
   boostPowerups = []; playerBoost=1; playerLaser=false; laserCount=0; boss = null; isBossLevel = false; aliensKilledSinceBoost = 0; shieldsThisLevel = 0;
   gameOver = false; gameStarted = true;
@@ -486,7 +513,6 @@ canvas.addEventListener('touchmove', e => {
   }
 });
 
-// --- Alien Fire Mechanic
 let lastAlienFire = 0;
 function aliensTryToFire() {
   if (aliens.length === 0 && !isBossLevel) return;
@@ -541,7 +567,6 @@ function aliensTryToFire() {
   }
 }
 
-// --- Drop de Shield limitado ---
 function maybeDropShield(x, y) {
   if (shieldsThisLevel < 3 && Math.random() < 0.10) {
     shieldPowerups.push({x: x, y: y, w: 30, h: 30, vy: 2.2 + Math.random()});
@@ -593,7 +618,7 @@ function updateBullets() {
     let rad = (b.angle||0)*Math.PI/180;
     b.x += Math.sin(rad)*6;
     if (b.isLaser) {
-      b.y = player.y; // LASER sempre no bico do foguete!
+      b.y = player.y;
       if (b.y < -HEIGHT) bullets.splice(i, 1);
     } else {
       b.y -= 11;
@@ -602,7 +627,7 @@ function updateBullets() {
   }
 }
 function updateCoins() {
-  // Coins agora evaporam, ver drawCoins()
+  // Coins agora evaporam, animadas em drawCoins()
 }
 function updateAlienBullets() {
   for (let i = alienBullets.length - 1; i >= 0; i--) {
@@ -631,7 +656,6 @@ function updateAlienBullets() {
 function checkCollisions() {
   for (let bi = bullets.length-1; bi>=0; bi--) {
     let b = bullets[bi];
-    // Boss
     if (isBossLevel && boss) {
       if (
         b.x < boss.x + boss.w &&
@@ -651,7 +675,6 @@ function checkCollisions() {
         continue;
       }
     }
-    // Aliens
     for (let ai = aliens.length-1; ai>=0; ai--) {
       let a = aliens[ai];
       if (
@@ -739,3 +762,5 @@ function draw() {
 spawnStars();
 introLoop();
 </script>
+</body>
+</html>
