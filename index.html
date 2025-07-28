@@ -56,10 +56,10 @@ bossImg.src = 'https://i.imgur.com/hFiI3oW.png';
 let score = 0, coinCount = 0, lives = 3, level = 1;
 let alienSpeed = 0.7, gameOver = false, gameStarted = false, startBtnEnabled = false;
 let shieldActive = false, shieldTimer = 0, shieldPowerups = [];
-let shieldsThisLevel = 0; // Limita escudo por fase
+let shieldsThisLevel = 0;
 const player = { x: WIDTH/2 - 16, y: HEIGHT - 64, w: 40, h: 46, targetX: WIDTH/2 - 16, targetY: HEIGHT - 64 };
 let bullets = [], aliens = [], stars = [], coins = [], alienBullets = [];
-let boostPowerups = [], playerBoost = 1, playerLaser = false, laserCount = 0;
+let boostPowerups = [], playerBoost = 1;
 let boss = null, isBossLevel = false, bossHitAnim = 0;
 let assetsLoaded = 0;
 const totalAssets = 2 + alienSprites.length;
@@ -68,10 +68,9 @@ bossImg.onload = onAssetLoad;
 alienSprites.forEach(img => img.onload = onAssetLoad);
 function onAssetLoad() { assetsLoaded++; if (assetsLoaded === totalAssets) startBtnEnabled = true; }
 
-// BOOSTS LOGIC
 let aliensKilledSinceBoost = 0;
 const BOOST_DROP_INTERVAL = 10;
-const MAX_BOOST = 5;
+const MAX_BOOST = 10;
 function tryDropBoost(x, y) {
   aliensKilledSinceBoost++;
   if (aliensKilledSinceBoost >= BOOST_DROP_INTERVAL) {
@@ -91,34 +90,28 @@ function updateBoosts() {
       b.y < player.y + player.h &&
       b.y + b.h > player.y
     ) {
-      if (!playerLaser) {
-        playerBoost++;
-        if (playerBoost > MAX_BOOST) { playerLaser = true; laserCount = 1; }
-      } else {
-        laserCount = Math.min(laserCount + 1, 2);
-      }
+      playerBoost = Math.min(playerBoost+1, MAX_BOOST);
       boostPowerups.splice(i,1);
     } else if (b.y > HEIGHT+40) {
       boostPowerups.splice(i,1);
     }
   }
 }
-function resetBoosts() {
-  playerBoost = 1;
-  playerLaser = false;
-  laserCount = 0;
-}
+function resetBoosts() { playerBoost = 1; }
 
-// SUPER BOSS
+// SUPER BOSS otimizado!
 function spawnBoss() {
+  // Ajuste de dificuldade progressiva
+  let baseSpeed = level === 5 ? 1.0 : (1.0 + (level/15));
+  let baseHp = level === 5 ? 50 : (50 + (level-5)*18);
   boss = {
     x: WIDTH/2 - 110, y: 44,
     w: 220, h: 130,
-    vx: 3 + level*0.5, vy: 1.6 + Math.random(),
+    vx: baseSpeed, vy: baseSpeed * 0.7,
     dirX: 1, dirY: 1,
-    maxHp: 25 + level*8, hp: 25 + level*8,
+    maxHp: baseHp, hp: baseHp,
     cooldown: 0,
-    fireInterval: Math.max(800 - level*50, 320)
+    fireInterval: Math.max(900 - level*50, 320)
   };
   isBossLevel = true;
 }
@@ -131,7 +124,6 @@ function drawBoss() {
   }
   ctx.drawImage(bossImg, boss.x, boss.y, boss.w, boss.h);
   ctx.restore();
-  // Barra de vida
   ctx.save();
   let pct = Math.max(0,boss.hp/boss.maxHp);
   ctx.fillStyle = "#ff0040";
@@ -198,24 +190,8 @@ function drawPlayer() {
 }
 function drawAliens() { aliens.forEach(a => ctx.drawImage(a.sprite, a.x, a.y, a.w, a.h)); }
 function drawBullets() {
-  if (playerLaser) {
-    bullets.forEach(b => {
-      ctx.save();
-      ctx.globalAlpha = 0.86;
-      ctx.strokeStyle = laserCount > 1 ? "#fff0ff" : "#00ffed";
-      ctx.lineWidth = laserCount > 1 ? 7 : 4;
-      ctx.shadowColor = laserCount > 1 ? "#ffbfff" : "#00fff0";
-      ctx.shadowBlur = 8;
-      ctx.beginPath();
-      ctx.moveTo(b.x+2, player.y);
-      ctx.lineTo(b.x+2, -10);
-      ctx.stroke();
-      ctx.restore();
-    });
-  } else {
-    ctx.fillStyle = '#adff2f';
-    bullets.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
-  }
+  ctx.fillStyle = '#adff2f';
+  bullets.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
 }
 function drawAlienBullets() {
   alienBullets.forEach(b => {
@@ -243,7 +219,7 @@ function drawAlienBullets() {
 }
 
 // -------- MOEDAS EVAPORANDO --------
-const COINS_PANEL_X = 310; // X approx center of "COINS:" painel HUD
+const COINS_PANEL_X = 310;
 const COINS_PANEL_Y = 20;
 function drawCoins() {
   let time = performance.now() * 0.005;
@@ -327,7 +303,7 @@ function drawHUD() {
   ctx.fillText(`LEVEL: ${level}`, 610, 30);
   ctx.font = `14px ${FONT_FAMILY}`;
   ctx.fillStyle = "#ffb300";
-  let boostMsg = playerLaser ? (laserCount>1?"LAZER x2":"LAZER") : ("x"+playerBoost);
+  let boostMsg = "x" + playerBoost;
   ctx.fillText("SHOT: "+boostMsg, WIDTH-155, HEIGHT-15);
   if (shieldActive) {
     ctx.save();
@@ -416,29 +392,26 @@ function insideStartBtn(mx, my) {
 }
 function introLoop() { if (!gameStarted) { drawStartScreen(); requestAnimationFrame(introLoop); } }
 
-// --- GAME FLOW ---
+// GAME FLOW
 function fireBullet() {
   if (gameOver) return;
-  if (playerLaser) {
-    let lasers = laserCount>1 ? 2 : 1;
-    let offsets = [0];
-    if (lasers === 2) offsets = [-7,7];
-    offsets.forEach(off => {
-      bullets.push({
-        x: player.x + player.w/2 - 2 + off, y: player.y - 10,
-        w: 4, h: HEIGHT, angle: 0, isLaser: true
-      });
-    });
-    return;
-  }
   let count = playerBoost;
-  let spread = 50;
-  let start = -((count-1)/2)*spread;
+  let spread = 0;
+  let angleStep = 0;
+  if (count <= 3) {
+    spread = 0;
+    angleStep = 0;
+  } else {
+    spread = 60; // total angle
+    angleStep = (count > 1) ? spread/(count-1) : 0;
+  }
+  let startAngle = -spread/2;
   for (let i = 0; i < count; i++) {
-    let angle = start + spread*i;
+    let angle = (count <= 3) ? 0 : startAngle + i*angleStep;
+    let rad = angle * Math.PI/180;
     bullets.push({
       x: player.x + player.w/2 - 1.5, y: player.y - 10,
-      w: 3, h: 14, angle: angle, isLaser: false
+      w: 3, h: 14, angle: angle
     });
   }
 }
@@ -446,7 +419,7 @@ function endGame() { gameOver = true; gameStarted = false; }
 function restartGame() {
   score = 0; coinCount = 0; lives = 3; level = 1; alienSpeed = 0.7;
   bullets = []; coins = []; alienBullets = []; shieldActive = false; shieldTimer = 0; shieldPowerups = [];
-  boostPowerups = []; playerBoost=1; playerLaser=false; laserCount=0; boss = null; isBossLevel = false; aliensKilledSinceBoost = 0; shieldsThisLevel = 0;
+  boostPowerups = []; playerBoost=1; boss = null; isBossLevel = false; aliensKilledSinceBoost = 0; shieldsThisLevel = 0;
   gameOver = false; gameStarted = true;
   spawnStars(); spawnAliens();
   player.x = WIDTH/2 - 16; player.y = HEIGHT - 64; player.targetX = WIDTH/2 - 16; player.targetY = HEIGHT - 64;
@@ -479,7 +452,7 @@ canvas.addEventListener('click', (e) => {
     player.x = WIDTH/2 - 16; player.y = HEIGHT - 64; player.targetX = WIDTH/2 - 16; player.targetY = HEIGHT - 64;
     score = 0; coinCount = 0; lives = 3; level = 1; alienSpeed = 0.7;
     bullets = []; coins = []; alienBullets = []; shieldActive = false; shieldTimer = 0; shieldPowerups = [];
-    boostPowerups = []; playerBoost=1; playerLaser=false; laserCount=0; boss = null; isBossLevel = false; aliensKilledSinceBoost = 0; shieldsThisLevel = 0;
+    boostPowerups = []; playerBoost=1; boss = null; isBossLevel = false; aliensKilledSinceBoost = 0; shieldsThisLevel = 0;
     gameOver = false; loop(); return;
   }
   if (gameOver && gameStarted === false) { restartGame(); return; }
@@ -498,7 +471,7 @@ canvas.addEventListener('touchstart', e => {
     player.x = WIDTH/2 - 16; player.y = HEIGHT - 64; player.targetX = WIDTH/2 - 16; player.targetY = HEIGHT - 64;
     score = 0; coinCount = 0; lives = 3; level = 1; alienSpeed = 0.7;
     bullets = []; coins = []; alienBullets = []; shieldActive = false; shieldTimer = 0; shieldPowerups = [];
-    boostPowerups = []; playerBoost=1; playerLaser=false; laserCount=0; boss = null; isBossLevel = false; aliensKilledSinceBoost = 0; shieldsThisLevel = 0;
+    boostPowerups = []; playerBoost=1; boss = null; isBossLevel = false; aliensKilledSinceBoost = 0; shieldsThisLevel = 0;
     gameOver = false; loop(); return;
   }
   if (gameOver && gameStarted === false) { restartGame(); return; }
@@ -617,17 +590,12 @@ function updateBullets() {
     let b = bullets[i];
     let rad = (b.angle||0)*Math.PI/180;
     b.x += Math.sin(rad)*6;
-    if (b.isLaser) {
-      b.y = player.y;
-      if (b.y < -HEIGHT) bullets.splice(i, 1);
-    } else {
-      b.y -= 11;
-      if (b.y < -12) bullets.splice(i, 1);
-    }
+    b.y -= 11*Math.cos(rad);
+    if (b.y < -12 || b.x < -12 || b.x > WIDTH+12) bullets.splice(i, 1);
   }
 }
 function updateCoins() {
-  // Coins agora evaporam, animadas em drawCoins()
+  // Coins evaporam, animadas em drawCoins()
 }
 function updateAlienBullets() {
   for (let i = alienBullets.length - 1; i >= 0; i--) {
@@ -656,15 +624,17 @@ function updateAlienBullets() {
 function checkCollisions() {
   for (let bi = bullets.length-1; bi>=0; bi--) {
     let b = bullets[bi];
+    let rad = (b.angle||0)*Math.PI/180;
+    let bx = b.x, by = b.y;
     if (isBossLevel && boss) {
       if (
-        b.x < boss.x + boss.w &&
-        b.x + (b.isLaser?4:3) > boss.x &&
-        b.y < boss.y + boss.h &&
-        b.y + (b.isLaser?HEIGHT:14) > boss.y
+        bx < boss.x + boss.w &&
+        bx + 3 > boss.x &&
+        by < boss.y + boss.h &&
+        by + 14 > boss.y
       ) {
-        if (!b.isLaser) bullets.splice(bi,1);
-        boss.hp -= playerLaser?3:1;
+        bullets.splice(bi,1);
+        boss.hp -= 1;
         bossHitAnim = 2;
         if (boss.hp <= 0) {
           score += 2000; boss = null; isBossLevel = false;
@@ -678,12 +648,12 @@ function checkCollisions() {
     for (let ai = aliens.length-1; ai>=0; ai--) {
       let a = aliens[ai];
       if (
-        b.x < a.x + a.w &&
-        b.x + (b.isLaser?4:3) > a.x &&
-        b.y < a.y + a.h &&
-        b.y + (b.isLaser?HEIGHT:14) > a.y
+        bx < a.x + a.w &&
+        bx + 3 > a.x &&
+        by < a.y + a.h &&
+        by + 14 > a.y
       ) {
-        if (!b.isLaser) bullets.splice(bi, 1);
+        bullets.splice(bi, 1);
         tryDropBoost(a.x + a.w/2 - 13, a.y + a.h/2 - 13);
         maybeDropShield(a.x + a.w/2 - 15, a.y + a.h/2 - 15);
         aliens.splice(ai, 1);
