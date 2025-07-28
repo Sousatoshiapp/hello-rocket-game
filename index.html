@@ -51,49 +51,24 @@ const alienSprites = alienSpriteSrcs.map(src => {
   return img;
 });
 
-// State
-let score = 0;
-let coinCount = 0;
-let lives = 3;
-let level = 1;
-let alienSpeed = 0.7;
-let gameOver = false;
-let gameStarted = false;
-let startBtnEnabled = false;
-
-// Player
-const player = {
-  x: WIDTH/2 - 16,
-  y: HEIGHT - 64,
-  w: 40,
-  h: 46,
-  targetX: WIDTH/2 - 16,
-};
-
-let bullets = [];
-let aliens = [];
-let stars = [];
-let coins = [];
-
-// Asset loader
+let score = 0, coinCount = 0, lives = 3, level = 1;
+let alienSpeed = 0.7, gameOver = false, gameStarted = false, startBtnEnabled = false;
+let shieldActive = false, shieldTimer = 0, shieldPowerups = [];
+const player = { x: WIDTH/2 - 16, y: HEIGHT - 64, w: 40, h: 46, targetX: WIDTH/2 - 16 };
+let bullets = [], aliens = [], stars = [], coins = [], alienBullets = [];
 let assetsLoaded = 0;
 const totalAssets = 1 + alienSprites.length;
-function onAssetLoad() {
-  assetsLoaded++;
-  if (assetsLoaded === totalAssets) {
-    startBtnEnabled = true;
-  }
-}
 rocketImg.onload = onAssetLoad;
 alienSprites.forEach(img => img.onload = onAssetLoad);
+function onAssetLoad() { assetsLoaded++; if (assetsLoaded === totalAssets) startBtnEnabled = true; }
 
-// GAME LOGIC
+// --- Game Logic ---
 function spawnAliens() {
   aliens = [];
   const rows = 3 + Math.min(level, 4);
   const cols = 6 + Math.floor(level * 1.1);
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
+  for (let row = 0; row < rows; row++)
+    for (let col = 0; col < cols; col++)
       aliens.push({
         x: 32 + col * 64,
         y: 24 + row * 44,
@@ -103,39 +78,59 @@ function spawnAliens() {
         dir: 1,
         sprite: alienSprites[Math.floor(Math.random() * alienSprites.length)]
       });
-    }
-  }
 }
 function spawnStars() {
   stars = [];
-  for (let i = 0; i < 64; i++) {
+  for (let i = 0; i < 64; i++)
     stars.push({ x: Math.random() * WIDTH, y: Math.random() * HEIGHT, r: Math.random() * 1.5 + 0.5 });
-  }
 }
 function drawStars() {
-  ctx.save();
-  ctx.globalAlpha = 0.7;
-  ctx.fillStyle = '#fff';
-  stars.forEach(s => {
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
-    ctx.fill();
-  });
+  ctx.save(); ctx.globalAlpha = 0.7; ctx.fillStyle = '#fff';
+  stars.forEach(s => { ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill(); });
   ctx.restore();
 }
 function drawPlayer() {
+  ctx.save();
+  if (shieldActive) {
+    ctx.save();
+    ctx.globalAlpha = 0.7;
+    let pulse = 1 + 0.08*Math.sin(performance.now()/70);
+    ctx.beginPath();
+    ctx.arc(player.x + player.w/2, player.y + player.h/2, 28*pulse, 0, 2*Math.PI);
+    let g = ctx.createRadialGradient(player.x + player.w/2, player.y + player.h/2, 12, player.x + player.w/2, player.y + player.h/2, 28*pulse);
+    g.addColorStop(0, "#fff");
+    g.addColorStop(0.6, "#3afffbcc");
+    g.addColorStop(1, "#32d0b7aa");
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.restore();
+  }
   ctx.drawImage(rocketImg, player.x, player.y, player.w, player.h);
+  ctx.restore();
 }
-function drawAliens() {
-  aliens.forEach(a => {
-    ctx.drawImage(a.sprite, a.x, a.y, a.w, a.h);
+function drawAliens() { aliens.forEach(a => ctx.drawImage(a.sprite, a.x, a.y, a.w, a.h)); }
+function drawBullets() { ctx.fillStyle = '#adff2f'; bullets.forEach(b => ctx.fillRect(b.x, b.y, 3, 14)); }
+function drawAlienBullets() {
+  alienBullets.forEach(b => {
+    ctx.save();
+    let grad = ctx.createLinearGradient(b.x, b.y, b.x, b.y + b.h);
+    if (b.type === "fan") {
+      grad.addColorStop(0, "#76fffe");
+      grad.addColorStop(1, "#00d4c6");
+    } else if (b.type === "fast") {
+      grad.addColorStop(0, "#ff8c1a");
+      grad.addColorStop(1, "#ffd700");
+    } else {
+      grad.addColorStop(0, "#FF3C7A");
+      grad.addColorStop(1, "#fff");
+    }
+    ctx.fillStyle = grad;
+    ctx.shadowColor = "#fff";
+    ctx.shadowBlur = 4;
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.restore();
   });
 }
-function drawBullets() {
-  ctx.fillStyle = '#adff2f';
-  bullets.forEach(b => ctx.fillRect(b.x, b.y, 3, 14));
-}
-// Desenha moedas douradas/prateadas com pulse
 function drawCoins() {
   let time = performance.now() * 0.005;
   let pulse = 1 + Math.sin(time * 2) * 0.12;
@@ -155,14 +150,12 @@ function drawCoins() {
     ctx.shadowColor = "#fffcd0";
     ctx.shadowBlur = 8;
     ctx.fill();
-    // Detalhe metálico
     ctx.globalAlpha = 0.18;
     ctx.beginPath();
     ctx.arc(c.x + c.w/2 - 3, c.y + c.h/2 - 2, c.w/4, 0, Math.PI*2);
     ctx.fillStyle = "#fff";
     ctx.fill();
     ctx.restore();
-    // Contorno
     ctx.save();
     ctx.globalAlpha = 0.25;
     ctx.beginPath();
@@ -173,6 +166,28 @@ function drawCoins() {
     ctx.restore();
   });
 }
+function drawShields() {
+  shieldPowerups.forEach(s => {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(s.x + s.w/2, s.y + s.h/2, s.w/2, 0, 2*Math.PI);
+    let g = ctx.createRadialGradient(s.x + s.w/2, s.y + s.h/2, 4, s.x + s.w/2, s.y + s.h/2, s.w/2);
+    g.addColorStop(0, "#fff");
+    g.addColorStop(0.6, "#41f3ffcc");
+    g.addColorStop(1, "#1f93a9");
+    ctx.fillStyle = g;
+    ctx.shadowColor = "#18f3ff";
+    ctx.shadowBlur = 6;
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.font = "13px " + FONT_FAMILY;
+    ctx.fillStyle = "#22e0ea";
+    ctx.textAlign = "center";
+    ctx.fillText("S", s.x + s.w/2, s.y + s.h/2 + 7);
+    ctx.restore();
+  });
+}
 function drawHUD() {
   ctx.fillStyle = '#adff2f';
   ctx.font = `18px ${FONT_FAMILY}`;
@@ -180,6 +195,13 @@ function drawHUD() {
   ctx.fillText(`COINS: ${coinCount}`, 220, 30);
   ctx.fillText(`LIVES: ${lives}`, 430, 30);
   ctx.fillText(`LEVEL: ${level}`, 610, 30);
+  if (shieldActive) {
+    ctx.save();
+    ctx.font = `15px ${FONT_FAMILY}`;
+    ctx.fillStyle = "#2ff6ff";
+    ctx.fillText("SHIELD", WIDTH - 100, HEIGHT - 15);
+    ctx.restore();
+  }
 }
 function drawGameOver() {
   ctx.save();
@@ -197,20 +219,15 @@ function drawGameOver() {
   ctx.textAlign = 'start';
   ctx.restore();
 }
-
-// START SCREEN
 function drawStartScreen() {
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
   drawStars();
-
-  // Pulse no título: variação de tamanho + leve variação de cor/gradiente
   let t = performance.now() * 0.002;
   let pulse = 1 + Math.sin(t * 2.2) * 0.10;
   let fontSize = 56 * pulse;
   ctx.save();
   ctx.font = `${fontSize}px ${FONT_FAMILY}`;
   ctx.textAlign = "center";
-  // Arcade gradient com variação sutil
   let grad = ctx.createLinearGradient(WIDTH/2-180, HEIGHT/2-80, WIDTH/2+180, HEIGHT/2+10);
   grad.addColorStop(0, "#fffcae");
   grad.addColorStop(0.3 + 0.1*Math.sin(t), "#ffe770");
@@ -223,8 +240,6 @@ function drawStartScreen() {
   ctx.strokeText("HELLO ROCKET", WIDTH/2, HEIGHT/2 - 48);
   ctx.fillText("HELLO ROCKET", WIDTH/2, HEIGHT/2 - 48);
   ctx.restore();
-
-  // Botão Start Game menor e proporcional
   if (startBtnEnabled) {
     let btnW = 160, btnH = 38;
     let btnX = WIDTH/2 - btnW/2;
@@ -255,10 +270,7 @@ function drawStartScreen() {
     ctx.restore();
   }
 }
-
-let startBtnArea = {
-  x: WIDTH/2 - 80, y: HEIGHT/2 + 10, w: 160, h: 38
-};
+let startBtnArea = { x: WIDTH/2 - 80, y: HEIGHT/2 + 10, w: 160, h: 38 };
 function insideStartBtn(mx, my) {
   return (
     startBtnEnabled &&
@@ -268,48 +280,23 @@ function insideStartBtn(mx, my) {
     my <= startBtnArea.y + startBtnArea.h
   );
 }
-function introLoop() {
-  if (!gameStarted) {
-    drawStartScreen();
-    requestAnimationFrame(introLoop);
-  }
-}
+function introLoop() { if (!gameStarted) { drawStartScreen(); requestAnimationFrame(introLoop); } }
 
-// GAME FLOW
-function fireBullet() {
-  if (!gameOver && bullets.length < 6) {
-    bullets.push({x: player.x + player.w/2 - 1.5, y: player.y - 10});
-  }
-}
-function endGame() {
-  gameOver = true;
-  gameStarted = false;
-}
+// --- GAME FLOW
+function fireBullet() { if (!gameOver && bullets.length < 6) bullets.push({x: player.x + player.w/2 - 1.5, y: player.y - 10}); }
+function endGame() { gameOver = true; gameStarted = false; }
 function restartGame() {
-  score = 0;
-  lives = 3;
-  coinCount = 0;
-  level = 1;
-  alienSpeed = 0.7;
-  bullets = [];
-  coins = [];
-  gameOver = false;
-  gameStarted = true;
-  spawnStars();
-  spawnAliens();
-  player.x = WIDTH/2 - 16;
-  player.targetX = WIDTH/2 - 16;
+  score = 0; lives = 3; coinCount = 0; level = 1;
+  alienSpeed = 0.7; bullets = []; coins = []; alienBullets = []; shieldActive = false; shieldTimer = 0; shieldPowerups = [];
+  gameOver = false; gameStarted = true;
+  spawnStars(); spawnAliens();
+  player.x = WIDTH/2 - 16; player.targetX = WIDTH/2 - 16;
   loop();
 }
 function loop() {
   if (!gameStarted) return;
-  if (!gameOver) {
-    update();
-    draw();
-    requestAnimationFrame(loop);
-  } else {
-    draw();
-  }
+  if (!gameOver) { update(); draw(); requestAnimationFrame(loop); }
+  else draw();
 }
 
 // CONTROLES
@@ -317,41 +304,22 @@ canvas.addEventListener('mousemove', (e) => {
   const rect = canvas.getBoundingClientRect();
   const mouseX = e.clientX - rect.left;
   const mouseY = e.clientY - rect.top;
-  if (!gameStarted && startBtnEnabled) {
-    canvas.style.cursor = insideStartBtn(mouseX, mouseY) ? 'pointer' : 'default';
-  } else {
-    player.targetX = mouseX - player.w/2;
-    canvas.style.cursor = 'default';
-  }
+  if (!gameStarted && startBtnEnabled) canvas.style.cursor = insideStartBtn(mouseX, mouseY) ? 'pointer' : 'default';
+  else { player.targetX = mouseX - player.w/2; canvas.style.cursor = 'default'; }
 });
 canvas.addEventListener('click', (e) => {
   const rect = canvas.getBoundingClientRect();
   const mouseX = e.clientX - rect.left;
   const mouseY = e.clientY - rect.top;
   if (!gameStarted && startBtnEnabled && insideStartBtn(mouseX, mouseY)) {
-    gameStarted = true;
-    spawnStars();
-    spawnAliens();
-    player.x = WIDTH/2 - 16;
-    player.targetX = WIDTH/2 - 16;
-    score = 0;
-    coinCount = 0;
-    lives = 3;
-    level = 1;
-    alienSpeed = 0.7;
-    bullets = [];
-    coins = [];
-    gameOver = false;
-    loop();
-    return;
+    gameStarted = true; spawnStars(); spawnAliens();
+    player.x = WIDTH/2 - 16; player.targetX = WIDTH/2 - 16;
+    score = 0; coinCount = 0; lives = 3; level = 1; alienSpeed = 0.7;
+    bullets = []; coins = []; alienBullets = []; shieldActive = false; shieldTimer = 0; shieldPowerups = [];
+    gameOver = false; loop(); return;
   }
-  if (gameOver && gameStarted === false) {
-    restartGame();
-    return;
-  }
-  if (gameStarted && !gameOver) {
-    fireBullet();
-  }
+  if (gameOver && gameStarted === false) { restartGame(); return; }
+  if (gameStarted && !gameOver) { fireBullet(); }
 });
 window.addEventListener('keydown', (e) => {
   if (e.code === "Space" && gameStarted && !gameOver) fireBullet();
@@ -360,29 +328,15 @@ window.addEventListener('keydown', (e) => {
 canvas.addEventListener('touchstart', e => {
   const rect = canvas.getBoundingClientRect();
   const touch = e.touches[0];
-  const mx = touch.clientX - rect.left;
-  const my = touch.clientY - rect.top;
+  const mx = touch.clientX - rect.left, my = touch.clientY - rect.top;
   if (!gameStarted && startBtnEnabled && insideStartBtn(mx, my)) {
-    gameStarted = true;
-    spawnStars();
-    spawnAliens();
-    player.x = WIDTH/2 - 16;
-    player.targetX = WIDTH/2 - 16;
-    score = 0;
-    coinCount = 0;
-    lives = 3;
-    level = 1;
-    alienSpeed = 0.7;
-    bullets = [];
-    coins = [];
-    gameOver = false;
-    loop();
-    return;
+    gameStarted = true; spawnStars(); spawnAliens();
+    player.x = WIDTH/2 - 16; player.targetX = WIDTH/2 - 16;
+    score = 0; coinCount = 0; lives = 3; level = 1; alienSpeed = 0.7;
+    bullets = []; coins = []; alienBullets = []; shieldActive = false; shieldTimer = 0; shieldPowerups = [];
+    gameOver = false; loop(); return;
   }
-  if (gameOver && gameStarted === false) {
-    restartGame();
-    return;
-  }
+  if (gameOver && gameStarted === false) { restartGame(); return; }
   if (gameStarted && !gameOver) fireBullet();
   e.preventDefault();
 }, {passive:false});
@@ -393,7 +347,76 @@ canvas.addEventListener('touchmove', e => {
   }
 });
 
-// GAME UPDATE
+// --- Alien Fire Mechanic
+let lastAlienFire = 0;
+function aliensTryToFire() {
+  if (aliens.length === 0) return;
+  let now = performance.now();
+  let minInterval = Math.max(700 - (level * 60), 240); // Disparo mais frequente nos níveis altos
+  if (now - lastAlienFire < minInterval) return;
+  lastAlienFire = now;
+
+  // Quantidade de tiros simultâneos por nível
+  let shots = 1 + Math.floor(level/5);
+  for (let i = 0; i < shots; i++) {
+    let shooters = aliens.filter((_, idx) => true);
+    let shooter = shooters[Math.floor(Math.random() * shooters.length)];
+    if (!shooter) continue;
+    let baseSpeed = 4 + Math.floor(level/3); // cada nível aumenta velocidade base
+    let bulletType = "normal";
+    // Fan shot (leque) em níveis 7+
+    if (level >= 7 && Math.random() < 0.32) {
+      alienBullets.push({
+        x: shooter.x + shooter.w/2 - 2, y: shooter.y + shooter.h,
+        w: 6, h: 20, speed: baseSpeed, dx: -1.1, type: "fan"
+      });
+      alienBullets.push({
+        x: shooter.x + shooter.w/2 - 3, y: shooter.y + shooter.h,
+        w: 6, h: 20, speed: baseSpeed, dx: 1.1, type: "fan"
+      });
+    }
+    // Fast bullet em níveis 10+
+    if (level >= 10 && Math.random() < 0.2) {
+      bulletType = "fast";
+      baseSpeed += 2;
+    }
+    // Normal
+    alienBullets.push({
+      x: shooter.x + shooter.w/2 - 3, y: shooter.y + shooter.h,
+      w: 6, h: 18, speed: baseSpeed, dx: 0, type: bulletType
+    });
+  }
+}
+
+// --- Power-up Shield
+function maybeDropShield(x, y) {
+  if (Math.random() < 0.12 + level * 0.004) { // Chance sobe com o nível
+    shieldPowerups.push({x: x, y: y, w: 30, h: 30, vy: 2.2 + Math.random()});
+  }
+}
+function updateShields() {
+  for (let i = shieldPowerups.length - 1; i >= 0; i--) {
+    let s = shieldPowerups[i];
+    s.y += s.vy;
+    // Player pega
+    if (
+      s.x < player.x + player.w &&
+      s.x + s.w > player.x &&
+      s.y < player.y + player.h &&
+      s.y + s.h > player.y
+    ) {
+      shieldPowerups.splice(i, 1);
+      shieldActive = true;
+      shieldTimer = 600; // Dura ~10s
+    } else if (s.y > HEIGHT+40) {
+      shieldPowerups.splice(i, 1);
+    }
+  }
+  if (shieldActive && shieldTimer > 0) shieldTimer--;
+  if (shieldActive && shieldTimer <= 0) shieldActive = false;
+}
+
+// --- Game Update
 function updateAliens() {
   let hitEdge = false;
   aliens.forEach(a => {
@@ -435,7 +458,34 @@ function updateCoins() {
     }
   }
 }
+function updateAlienBullets() {
+  for (let i = alienBullets.length - 1; i >= 0; i--) {
+    let b = alienBullets[i];
+    b.y += b.speed;
+    if (b.dx) b.x += b.dx; // Fan shot movimento lateral
+    // Colisão com player
+    if (
+      b.x < player.x + player.w &&
+      b.x + b.w > player.x &&
+      b.y + b.h > player.y &&
+      b.y < player.y + player.h
+    ) {
+      alienBullets.splice(i, 1);
+      if (shieldActive) {
+        shieldActive = false;
+        shieldTimer = 0;
+      } else {
+        lives--;
+        if (lives <= 0) endGame();
+      }
+      continue;
+    }
+    // Fora da tela
+    if (b.y > HEIGHT+20 || b.x < -40 || b.x > WIDTH+40) alienBullets.splice(i, 1);
+  }
+}
 function checkCollisions() {
+  // Bala do player vs alien
   for (let bi = bullets.length-1; bi>=0; bi--) {
     let b = bullets[bi];
     for (let ai = aliens.length-1; ai>=0; ai--) {
@@ -447,6 +497,9 @@ function checkCollisions() {
         b.y + 14 > a.y
       ) {
         bullets.splice(bi, 1);
+        let dropShield = Math.random();
+        // Power-up shield com chance
+        maybeDropShield(a.x + a.w/2 - 15, a.y + a.h/2 - 15);
         aliens.splice(ai, 1);
         score += 100;
         coins.push({x: a.x + a.w/2 - 9, y: a.y + a.h/2 - 9, w: 18, h: 18});
@@ -454,19 +507,7 @@ function checkCollisions() {
       }
     }
   }
-  for (let ai = aliens.length-1; ai>=0; ai--) {
-    let a = aliens[ai];
-    if (
-      a.x < player.x + player.w &&
-      a.x + a.w > player.x &&
-      a.y + a.h > player.y + 4
-    ) {
-      lives--;
-      if (lives <= 0) endGame();
-      spawnAliens();
-      break;
-    }
-  }
+  // Alien vs player já coberto em updateAlienBullets()
 }
 function update() {
   if (typeof player.targetX !== 'undefined') {
@@ -478,11 +519,12 @@ function update() {
   updateAliens();
   updateBullets();
   updateCoins();
+  updateAlienBullets();
+  updateShields();
   checkCollisions();
+  aliensTryToFire();
   if (aliens.length === 0 && !gameOver) {
-    level++;
-    alienSpeed += 0.18;
-    spawnAliens();
+    level++; alienSpeed += 0.18; spawnAliens();
   }
 }
 function draw() {
@@ -491,12 +533,13 @@ function draw() {
   drawPlayer();
   drawAliens();
   drawBullets();
+  drawAlienBullets();
   drawCoins();
+  drawShields();
   drawHUD();
   if (gameOver) drawGameOver();
 }
 
-// START SCREEN
 spawnStars();
 introLoop();
 </script>
