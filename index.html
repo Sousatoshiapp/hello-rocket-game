@@ -8,20 +8,38 @@
       margin: 0;
       background: black;
       overflow: hidden;
+      font-family: monospace;
+    }
+    #startBtn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 20px;
+      padding: 10px 20px;
+      cursor: pointer;
+      background: #0f0;
+      border: none;
+      color: black;
+      border-radius: 5px;
+      z-index: 10;
     }
     canvas {
       display: block;
       margin: auto;
       background: black;
       image-rendering: pixelated;
+      border: 3px solid #fff;
     }
   </style>
 </head>
 <body>
-<canvas id="game" width="480" height="320"></canvas>
+<button id="startBtn">INICIAR JOGO</button>
+<canvas id="game" width="640" height="360"></canvas>
 <script>
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
+const startBtn = document.getElementById('startBtn');
 
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
@@ -29,12 +47,13 @@ const HEIGHT = canvas.height;
 let score = 0;
 let lives = 3;
 let gameOver = false;
+let gameStarted = false;
 
 const player = {
   x: WIDTH / 2 - 10,
-  y: HEIGHT - 30,
+  y: HEIGHT - 40,
   w: 20,
-  h: 10,
+  h: 20,
   color: '#0ff',
 };
 
@@ -46,12 +65,12 @@ const keys = {};
 function spawnAliens() {
   aliens.length = 0;
   for (let row = 0; row < 4; row++) {
-    for (let col = 0; col < 8; col++) {
+    for (let col = 0; col < 10; col++) {
       aliens.push({
-        x: 30 + col * 50,
+        x: 30 + col * 55,
         y: 30 + row * 30,
-        w: 16,
-        h: 10,
+        w: 20,
+        h: 12,
         dx: 0.5,
         dir: 1,
         color: '#f0f'
@@ -61,8 +80,8 @@ function spawnAliens() {
 }
 
 function spawnStars() {
-  for (let i = 0; i < 50; i++) {
-    stars.push({ x: Math.random() * WIDTH, y: Math.random() * HEIGHT, r: Math.random() * 2 });
+  for (let i = 0; i < 60; i++) {
+    stars.push({ x: Math.random() * WIDTH, y: Math.random() * HEIGHT, r: Math.random() * 1.5 });
   }
 }
 
@@ -77,15 +96,22 @@ function drawStars() {
 
 function drawPlayer() {
   ctx.fillStyle = player.color;
-  ctx.fillRect(player.x, player.y, player.w, player.h);
-  ctx.fillRect(player.x + 5, player.y - 5, 10, 5); // topo da nave
+  ctx.beginPath();
+  ctx.moveTo(player.x + player.w / 2, player.y);
+  ctx.lineTo(player.x, player.y + player.h);
+  ctx.lineTo(player.x + player.w, player.y + player.h);
+  ctx.closePath();
+  ctx.fill();
+  // Thruster efeito
+  ctx.fillStyle = '#f90';
+  ctx.fillRect(player.x + player.w / 2 - 2, player.y + player.h, 4, 6);
 }
 
 function drawAliens() {
   aliens.forEach(a => {
     ctx.fillStyle = a.color;
     ctx.fillRect(a.x, a.y, a.w, a.h);
-    ctx.fillRect(a.x + 4, a.y - 4, 8, 4); // domo do OVNI
+    ctx.fillRect(a.x + 5, a.y - 4, 10, 4);
   });
 }
 
@@ -96,9 +122,9 @@ function drawBullets() {
 
 function drawHUD() {
   ctx.fillStyle = '#0f0';
-  ctx.font = '14px monospace';
-  ctx.fillText(`Score: ${score}`, 10, 16);
-  ctx.fillText(`Lives: ${lives}`, WIDTH - 80, 16);
+  ctx.font = '16px monospace';
+  ctx.fillText(`Score: ${score}`, 10, 20);
+  ctx.fillText(`Lives: ${lives}`, WIDTH - 100, 20);
 }
 
 function updateAliens() {
@@ -160,6 +186,7 @@ function draw() {
 }
 
 function loop() {
+  if (!gameStarted) return;
   if (!gameOver) {
     update();
     draw();
@@ -167,23 +194,31 @@ function loop() {
   } else {
     ctx.fillStyle = '#f00';
     ctx.font = '30px monospace';
-    ctx.fillText('GAME OVER', WIDTH / 2 - 90, HEIGHT / 2);
+    ctx.fillText('GAME OVER', WIDTH / 2 - 100, HEIGHT / 2);
   }
 }
 
 document.addEventListener('keydown', (e) => {
   keys[e.key] = true;
-  if (e.key === ' ') {
+  if (e.key === ' ' && gameStarted && !gameOver) {
     bullets.push({ x: player.x + player.w / 2 - 1, y: player.y });
   }
 });
+
 document.addEventListener('keyup', (e) => {
   keys[e.key] = false;
 });
 
-spawnStars();
-spawnAliens();
-loop();
+startBtn.onclick = () => {
+  startBtn.style.display = 'none';
+  gameStarted = true;
+  score = 0;
+  lives = 3;
+  gameOver = false;
+  spawnStars();
+  spawnAliens();
+  loop();
+};
 </script>
 </body>
 </html>
