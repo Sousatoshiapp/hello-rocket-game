@@ -4,26 +4,28 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hello Rocket Game</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <style>
     html, body {
       margin: 0;
       padding: 0;
       overflow: hidden;
-      background: #1d1f27;
+      background: url('https://images.unsplash.com/photo-1473920451331-80022131f5a1?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
+      background-size: cover;
+      font-family: 'Press Start 2P', monospace;
     }
     canvas {
       display: block;
       margin: 0 auto;
-      background: linear-gradient(#192231, #10151f);
+      background-color: rgba(0,0,0,0.3);
     }
     #scoreboard {
       position: absolute;
       top: 10px;
       left: 50%;
       transform: translateX(-50%);
-      font-family: sans-serif;
-      color: white;
-      font-size: 18px;
+      color: #ADFF2F;
+      font-size: 14px;
       z-index: 10;
     }
     #startScreen, #gameOverScreen {
@@ -37,14 +39,14 @@
       justify-content: center;
       align-items: center;
       flex-direction: column;
-      color: white;
-      font-family: sans-serif;
+      color: #ADFF2F;
       z-index: 100;
+      text-align: center;
     }
     button {
       margin-top: 20px;
       padding: 10px 20px;
-      font-size: 16px;
+      font-size: 12px;
       background: #ADFF2F;
       color: #000;
       border: none;
@@ -74,6 +76,12 @@
     const gameOverScreen = document.getElementById("gameOverScreen");
     const finalScoreText = document.getElementById("finalScore");
 
+    const rocketImg = new Image();
+    rocketImg.src = "https://cdn-icons-png.flaticon.com/512/3219/3219355.png";
+
+    const meteorImg = new Image();
+    meteorImg.src = "https://cdn-icons-png.flaticon.com/512/616/616554.png";
+
     let rocket = { x: canvas.width / 2 - 20, y: canvas.height - 60, width: 40, height: 40, speed: 7 };
     let bullets = [];
     let enemies = [];
@@ -81,6 +89,13 @@
     let score = 0;
     let lives = 3;
     let gameRunning = false;
+
+    const stars = Array.from({ length: 100 }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      size: Math.random() * 2,
+      speed: Math.random() * 0.5 + 0.2
+    }));
 
     document.addEventListener("keydown", (e) => keys[e.key] = true);
     document.addEventListener("keyup", (e) => keys[e.key] = false);
@@ -127,9 +142,17 @@
       });
     }
 
+    function drawStars() {
+      ctx.fillStyle = 'white';
+      stars.forEach((star) => {
+        star.y += star.speed;
+        if (star.y > canvas.height) star.y = 0;
+        ctx.fillRect(star.x, star.y, star.size, star.size);
+      });
+    }
+
     function drawRocket() {
-      ctx.fillStyle = "#ADFF2F";
-      ctx.fillRect(rocket.x, rocket.y, rocket.width, rocket.height);
+      ctx.drawImage(rocketImg, rocket.x, rocket.y, rocket.width, rocket.height);
     }
 
     function drawBullets() {
@@ -142,10 +165,9 @@
     }
 
     function drawEnemies() {
-      ctx.fillStyle = "#ff4f4f";
       enemies.forEach((e, i) => {
         e.y += e.speed;
-        ctx.fillRect(e.x, e.y, e.width, e.height);
+        ctx.drawImage(meteorImg, e.x, e.y, e.width, e.height);
 
         // Collision with rocket
         if (
@@ -159,7 +181,6 @@
           if (lives <= 0) gameOver();
         }
 
-        // Off screen
         if (e.y > canvas.height) enemies.splice(i, 1);
       });
     }
@@ -183,8 +204,8 @@
 
     function update() {
       if (!gameRunning) return;
-
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawStars();
 
       if (keys["ArrowLeft"] && rocket.x > 0) rocket.x -= rocket.speed;
       if (keys["ArrowRight"] && rocket.x + rocket.width < canvas.width) rocket.x += rocket.speed;
