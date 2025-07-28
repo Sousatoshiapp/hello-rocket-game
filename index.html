@@ -48,7 +48,7 @@
     }
   </style>
 </head>
-<body onload="canvas.focus()" tabindex="0">
+<body tabindex="0">
 <div id="startScreen">
   <h1>HELLO ROCKET</h1>
   <button id="startBtn">START GAME</button>
@@ -325,6 +325,14 @@ restartBtn.onclick = () => {
   canvas.focus();
   loop();
 };
+
+window.addEventListener('load', () => {
+  window.focus();
+  document.body.addEventListener('click', () => {
+    window.focus();
+    canvas.focus();
+  });
+});
 </script>
 </body>
 </html>
