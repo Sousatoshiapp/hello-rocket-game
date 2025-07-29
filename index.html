@@ -459,8 +459,13 @@ function drawStartScreen() {
   ctx.strokeStyle = "#222";
   ctx.shadowColor = "#f4e700";
   ctx.shadowBlur = 10 + 12 * pulse;
-  ctx.strokeText("", WIDTH/2, HEIGHT/2 - 48);
-  ctx.fillText("", WIDTH/2, HEIGHT/2 - 48);
+  // Primeira linha
+  ctx.strokeText("WE DON’T MAKE WEBSITES.", WIDTH / 2, HEIGHT / 2 - 30);
+  ctx.fillText("WE DON’T MAKE WEBSITES.", WIDTH / 2, HEIGHT / 2 - 30);
+
+  // Segunda linha
+  ctx.strokeText("WE BUILD DIMENSIONS.", WIDTH / 2, HEIGHT / 2 + 10);
+  ctx.fillText("WE BUILD DIMENSIONS.", WIDTH / 2, HEIGHT / 2 + 10);
   ctx.restore();
   if (startBtnEnabled) {
     let btnW = 160, btnH = 38;
