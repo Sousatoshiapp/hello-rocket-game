@@ -100,7 +100,8 @@ function updateBoosts() {
 }
 function resetBoosts() { playerBoost = 1; }
 
-// SUPER BOSS
+// === SUPER BOSS ===
+
 function spawnBoss() {
   const baseSpeed = 0.4 + Math.min(level * 0.05, 1.2);
   const baseHp = 50 + Math.max(0, (level - 5)) * 18;
@@ -126,27 +127,18 @@ function spawnBoss() {
   isBossLevel = true;
 }
 
-function drawBoss() {
-  if (!boss) return;
-  ctx.save();
-  if (bossHitAnim>0) {
-    ctx.globalAlpha = 0.72;
-    ctx.filter = "brightness(2) hue-rotate(-25deg)";
-  }
-  ctx.drawImage(bossImg, boss.x, boss.y, boss.w, boss.h);
-  ctx.restore();
-  ctx.save();
-  let pct = Math.max(0,boss.hp/boss.maxHp);
-  ctx.fillStyle = "#ff0040";
-  ctx.fillRect(WIDTH/2-80, 24, 160, 18);
-  ctx.fillStyle = "#adff2f";
-  ctx.fillRect(WIDTH/2-80, 24, 160*pct, 18);
-  ctx.strokeStyle = "#222";
-  ctx.strokeRect(WIDTH/2-80, 24, 160, 18);
-  ctx.restore();
-}
 function updateBoss(deltaTime) {
   if (!boss) return;
+
+  // Verifica se o boss foi derrotado
+  if (boss.hp <= 0) {
+    boss = null;
+    bossProjectiles = [];
+    isBossLevel = false;
+    level++;
+    startNextWave(); // Essa função deve iniciar a próxima fase
+    return;
+  }
 
   // Movimento
   boss.x += boss.vx * boss.dirX;
@@ -166,24 +158,54 @@ function updateBoss(deltaTime) {
   // Tiro
   boss.cooldown -= deltaTime;
   if (boss.cooldown <= 0) {
-    spawnBossProjectile();
+    spawnBossProjectile(); // Função que cria o tiro do boss
     boss.cooldown = boss.fireInterval;
   }
+}
+
+function drawBoss() {
+  if (!boss) return;
+  ctx.save();
+  if (bossHitAnim > 0) {
+    ctx.globalAlpha = 0.72;
+    ctx.filter = "brightness(2) hue-rotate(-25deg)";
+  }
+  ctx.drawImage(bossImg, boss.x, boss.y, boss.w, boss.h);
+  ctx.restore();
+
+  // Barra de vida
+  ctx.save();
+  let pct = Math.max(0, boss.hp / boss.maxHp);
+  ctx.fillStyle = "#ff0040";
+  ctx.fillRect(WIDTH / 2 - 80, 24, 160, 18);
+  ctx.fillStyle = "#adff2f";
+  ctx.fillRect(WIDTH / 2 - 80, 24, 160 * pct, 18);
+  ctx.strokeStyle = "#222";
+  ctx.strokeRect(WIDTH / 2 - 80, 24, 160, 18);
+  ctx.restore();
+}
+
+// === ALIENS ===
 
 function spawnAliens() {
+  // Reset inicial
   aliens = [];
-  if ((level % 5) === 0) {
+  boss = null;
+  isBossLevel = false;
+  shieldsThisLevel = 0;
+
+  // Se o nível for múltiplo de 5, ativa o Super Boss
+  if (level % 5 === 0) {
     spawnBoss();
-    shieldsThisLevel = 0;
     return;
   }
-  isBossLevel = false;
-  boss = null;
-  shieldsThisLevel = 0;
-  const rows = 3 + Math.min(level, 4);
-  const cols = 6 + Math.floor(level * 1.1);
-  for (let row = 0; row < rows; row++)
-    for (let col = 0; col < cols; col++)
+
+  // Geração dos aliens normais
+  const rows = 3 + Math.min(level, 4); // Máximo de 7 linhas
+  const cols = 6 + Math.floor(level * 1.1); // Cresce progressivamente
+
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
       aliens.push({
         x: 32 + col * 64,
         y: 24 + row * 44,
@@ -193,36 +215,64 @@ function spawnAliens() {
         dir: 1,
         sprite: alienSprites[Math.floor(Math.random() * alienSprites.length)]
       });
+    }
+  }
 }
+
+// === STARS ===
+
 function spawnStars() {
   stars = [];
-  for (let i = 0; i < 64; i++)
-    stars.push({ x: Math.random() * WIDTH, y: Math.random() * HEIGHT, r: Math.random() * 1.5 + 0.5 });
+  for (let i = 0; i < 64; i++) {
+    stars.push({
+      x: Math.random() * WIDTH,
+      y: Math.random() * HEIGHT,
+      r: Math.random() * 1.5 + 0.5
+    });
+  }
 }
+
 function drawStars() {
-  ctx.save(); ctx.globalAlpha = 0.7; ctx.fillStyle = '#fff';
-  stars.forEach(s => { ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill(); });
+  ctx.save();
+  ctx.globalAlpha = 0.7;
+  ctx.fillStyle = '#fff';
+  for (const s of stars) {
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 }
+
+// === PLAYER ===
+
 function drawPlayer() {
   ctx.save();
+
   if (shieldActive) {
     ctx.save();
     ctx.globalAlpha = 0.7;
-    let pulse = 1 + 0.08*Math.sin(performance.now()/70);
+    let pulse = 1 + 0.08 * Math.sin(performance.now() / 70);
+    let centerX = player.x + player.w / 2;
+    let centerY = player.y + player.h / 2;
+
     ctx.beginPath();
-    ctx.arc(player.x + player.w/2, player.y + player.h/2, 28*pulse, 0, 2*Math.PI);
-    let g = ctx.createRadialGradient(player.x + player.w/2, player.y + player.h/2, 12, player.x + player.w/2, player.y + player.h/2, 28*pulse);
-    g.addColorStop(0, "#fff");
-    g.addColorStop(0.6, "#3afffbcc");
-    g.addColorStop(1, "#32d0b7aa");
-    ctx.fillStyle = g;
+    ctx.arc(centerX, centerY, 28 * pulse, 0, 2 * Math.PI);
+
+    let gradient = ctx.createRadialGradient(centerX, centerY, 12, centerX, centerY, 28 * pulse);
+    gradient.addColorStop(0, "#fff");
+    gradient.addColorStop(0.6, "#3afffbcc");
+    gradient.addColorStop(1, "#32d0b7aa");
+
+    ctx.fillStyle = gradient;
     ctx.fill();
     ctx.restore();
   }
+
   ctx.drawImage(rocketImg, player.x, player.y, player.w, player.h);
   ctx.restore();
 }
+
 function drawAliens() { aliens.forEach(a => ctx.drawImage(a.sprite, a.x, a.y, a.w, a.h)); }
 
 // Paleta de cores dos tiros por boost
@@ -743,26 +793,42 @@ function checkCollisions() {
     }
   }
 }
+// === Atualização do Super Boss ===
 function updateBoss() {
   if (!boss) return;
+
+  // Movimento
   boss.x += boss.vx * boss.dirX;
   boss.y += boss.vy * boss.dirY;
-  if (boss.x < 10 || boss.x + boss.w > WIDTH-10) boss.dirX *= -1;
-  if (boss.y < 40 || boss.y + boss.h > HEIGHT/2) boss.dirY *= -1;
-  if (bossHitAnim>0) bossHitAnim--;
+
+  if (boss.x < 10 || boss.x + boss.w > WIDTH - 10) boss.dirX *= -1;
+  if (boss.y < 40 || boss.y + boss.h > HEIGHT / 2) boss.dirY *= -1;
+
+  // Animação de dano
+  if (bossHitAnim > 0) bossHitAnim--;
 }
+
+// === Atualização Geral ===
 function update() {
+  // Movimento do jogador
   if (typeof player.targetX !== 'undefined' && typeof player.targetY !== 'undefined') {
     const dx = player.targetX - player.x;
     const dy = player.targetY - player.y;
+
     player.x += dx * 0.12;
     player.y += dy * 0.12;
+
+    // Limites da tela
     if (player.x < 0) player.x = 0;
     if (player.x + player.w > WIDTH) player.x = WIDTH - player.w;
     if (player.y < 0) player.y = 0;
     if (player.y + player.h > HEIGHT) player.y = HEIGHT - player.h;
   }
+
+  // Atualizações do boss
   if (isBossLevel && boss) updateBoss();
+
+  // Atualizações gerais
   updateAliens();
   updateBullets();
   updateCoins();
@@ -771,10 +837,16 @@ function update() {
   updateBoosts();
   checkCollisions();
   aliensTryToFire();
+
+  // Próxima fase (caso todos os aliens normais sejam destruídos)
   if (!isBossLevel && aliens.length === 0 && !gameOver) {
-    level++; alienSpeed += 0.18; spawnAliens();
+    level++;
+    alienSpeed += 0.18;
+    spawnAliens();
   }
 }
+
+// === Desenho Geral ===
 function draw() {
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
   drawStars();
@@ -789,6 +861,8 @@ function draw() {
   drawHUD();
   if (gameOver) drawGameOver();
 }
+
+// === Inicialização ===
 spawnStars();
 introLoop();
 </script>
