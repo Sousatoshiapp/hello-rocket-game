@@ -446,7 +446,7 @@ function drawStartScreen() {
   drawStars();
   let t = performance.now() * 0.002;
   let pulse = 1 + Math.sin(t * 2.2) * 0.10;
-  let fontSize = 56 * pulse;
+  let fontSize = 56 * 0.6 * pulse; // 40% menor
   ctx.save();
   ctx.font = `${fontSize}px ${FONT_FAMILY}`;
   ctx.textAlign = "center";
